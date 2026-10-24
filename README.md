@@ -28,6 +28,13 @@ rtk .venv\Scripts\python -m pdb_ingest crawl --max-profiles 500 --db data/pdb.du
 
 `--sort top` crawls PDB's Top (All Time) order (`sort=top`); the default `hot` is the site's default listing. Top profiles are far more active: on the first page the median was 441 votes and 543 comments, against 111 and 199 for HOT. `--max-comments N` fetches reply threads only for the first N top-level comments (pinned comments come first, and their Google Docs are always followed). Snapshots record `comment_limit`/`comments_truncated`. Sort, cap and `--max-profiles` are all stored with the crawl, and resuming with different values is refused. The current main dataset was produced with `--sort top --max-profiles 500 --max-comments 25 --db data/pdb-top.duckdb --capture-dir data/run-top`. Profiles PDB refuses individually (a JSON 403 with a reason, such as "inactive" or "friends only") are recorded as unavailable and skipped without stopping the crawl. Login prompts, 401s and Cloudflare pages still stop it.
 
+Supplemental samples get their own scope and checkpoints with `--sample NAME`, and queue rows carry the tag. In `data/pdb-top.duckdb`:
+- `top`: the first 500 usable Top profiles.
+- `top2`: the next 500 (`--sample top2`).
+- `es`: 59 assessable ESTP/ESFP/ESTJ/ESFJ profiles added with `--type-filter '^ES[TF][JP]' --min-words 200`. Its type mix is filtered by construction, so leave it out of type-classifier training.
+
+Requests are spaced by `--interval` seconds (default 1).
+
 For a shorter invocation add `--limit 5`; this limits profile attempts in that invocation without changing the saved 500-profile scope. Re-run without it to continue. The scope is stored with the queue; changing `--max-profiles` requires a separate database. Category listing pages are fetched incrementally as needed. Completed snapshots and queue advancement are transactional. An interrupted profile starts over; its already captured responses remain available for inspection. Cloudflare checks must be completed manually in the browser within two minutes; otherwise the command exits with a recoverable error. Avoid concurrent commands against the same browser session or database.
 
 Single-profile verification:
@@ -78,7 +85,7 @@ On the Top database: 574 profiles, 31,175 segments, 650 quotes and 11,288 reply 
 ## Personality panel
 
 ```powershell
-rtk .venv\Scripts\python -m pdb_ingest panel --db data/pdb-top.duckdb   # then open http://127.0.0.1:8765/
+rtk .venv\Scripts\python -m pdb_ingest panel --db data/pdb-top.duckdb --samples top top2   # then open http://127.0.0.1:8765/
 ```
 
 A local web page that only listens on 127.0.0.1. It opens the database read-only and shows aggregate charts only:
@@ -88,9 +95,43 @@ A local web page that only listens on 127.0.0.1. It opens the database read-only
 - Big Five intercorrelations
 - the MBTI × Enneagram bundling heatmap
 
-The **assessor** scores a typed self-description with typology labels scrubbed. It averages TF-IDF and `multilingual-e5-small` models trained at startup on the Top sample. It reports Big Five percentiles with ±1 cross-validated error bands, and MBTI letter and Enneagram core probabilities twice: as PDB voters would type the text, and as the LLM agent would (its Form M result and its self-typed core). Each comes with its cross-validated accuracy. Assessed text is never stored or logged.
+The **assessor** scores a typed self-description with typology labels scrubbed. It averages TF-IDF and `multilingual-e5-small` models trained at startup on the chosen samples. Each output comes with its cross-validated accuracy:
+- **Big Five:** percentiles with ±1 cross-validated error bands.
+- **Crowd MBTI type:** the top 3 of 16 types, as PDB voters would type the text. A 16-type head distilled from Jev (below) is pooled with four letter heads (log-linear pool, letter weight 0.4).
+- **Crowd MBTI letters and Enneagram core.**
+- **Agent MBTI and Enneagram:** the LLM agent's Form M result and self-typed core.
 
-Predictions mimic the *agent's* reading. That reading is skewed in this sample (high O and N, low C, E and A), so new texts are pulled toward that profile. First start embeds any uncached profiles; after that, startup takes seconds.
+Assessed text is never stored or logged.
+
+Predictions mimic the *agent's* reading for the Big Five and the *crowd's* for types. The agent's reading is skewed in this sample (high O and N, low C, E and A), so new texts are pulled toward that profile. Startup trains every head with 5-fold CV, which takes about 7 minutes on Top + top2. The first start also embeds any uncached profiles. The panel opens the database read-only, but DuckDB on Windows still cannot share the file with a running writer (crawl, assess, annotate). Point `--db` at a copy, or stop the writer.
+
+## Jev teacher (16-type labels)
+
+`tools/distill_jev.py label --db data/pdb-top.duckdb --samples top,top2` asks TypeSafe's **Jev 1.14** (`typesafe/jev-1.14`), a *decision model* served through OpenRouter's Decisions API (`POST /api/alpha/decisions`), one `choice` question per profile. The question is which of the 16 types the forum crowd would vote, and Jev returns a probability for every type. Labels are cached under `data/stage2/llm/typesafe--jev-1.14/`, each with the exact build that answered. The cost was $0.24 for 795 profiles: $0.042 per million input tokens and nothing for output.
+
+Do not use `typesafe/jev-router`. Despite the name, it forwards each request to a different chat LLM (Gemini, Grok, GLM, Command, ...). The first round of "Jev" labels came from it by mistake; they are kept in `data/stage2/llm/typesafe--jev-router/` and `data/stage2/jev_distill_router.json`.
+
+`distill_jev.py evaluate` runs 5-fold CV against the crowd's modal type. Results on Top + top2 (795 profiles, commonest-type baseline 11.7%):
+
+| Model | Exact | Top 3 | Log loss |
+|---|---|---|---|
+| Ours (TF-IDF + e5, letters pooled with 16-type) | 17.2% | 44.4% | 2.516 |
+| Jev 1.14 | 33.7% | 60.3% | 2.428 |
+| Jev + ours (weight picked on other folds) | 33.6% | 60.3% | 2.115 |
+| Student on 0.5 Jev + 0.5 crowd, pooled with letters (panel) | 19.1% | 46.2% | 2.468 |
+
+Jev's accuracy rises with text length, from 17% for profiles under 400 words to 49% for those over 4,600, while ours stays flat at about 18–20%. So long profiles are not capped.
+
+## Encoder comparisons
+
+`tools/run_stage2.py --model M --samples top,top2 main` embeds and caches profiles under `data/stage2/emb/<model>/main`. Then:
+- `tools/compare_text_models.py`: agent IPIP Spearman r and crowd letter balanced accuracy. `--matryoshka 64,128,...` adds sliced variants.
+- `tools/compare_type_models.py --encoder SLUG [--dims K]`: 16-type models.
+
+On the Top sample, `multilingual-e5-small` stacked with TF-IDF stays the default, with mean IPIP r 0.50. The others scored lower:
+- ModernBERT-base: 0.46 stacked.
+- Jina v5 text-small-classification: 0.47 stacked, 14.8% vs 16.6% 16-type. It used 2048-token chunks to stay inside 8 GB of VRAM.
+- Jina Matryoshka slices (32–768 dims): worse at every size.
 
 ## Stage 3: psychometric agent battery
 
@@ -100,6 +141,13 @@ Each complete profile's creator-authored corpus (`raw_text` by default, `--text-
 rtk .venv\Scripts\python -m pdb_ingest assess --db data/pdb.duckdb --limit 5
 rtk .venv\Scripts\python -m pdb_ingest assess 1912391 --runs 3 --provider <upstream>
 ```
+
+`--prompt-version` picks the prompt:
+- `stage3-v1` (default): first-person persona. All `top` profiles have a run, about $0.009 per profile.
+- `stage3-predict-v1`: third-person "predict how this person answered".
+- `stage3-predict-v2`: lean third person, 4 calls instead of 8.
+
+Analyses group runs by prompt version, so train on one version only. `--profiles-file` restricts the run to listed profiles.
 
 The default model is `deepseek/deepseek-v4-flash` via OpenRouter. The key comes from `OPEN_ROUTER_API_KEY` or `OPEN_ROUTER_API_KEY.txt` (git-ignored), and is never logged or stored. `--runs N` keeps adding runs until each profile has N complete ones for the same model, prompt version and text view, with seeds offset per run. `--provider` defaults to `deepinfra/fp8`: of the cheap fp8 upstreams tested, it was the only one that honoured both forced `tool_choice` and `seed`, and its prefix cache hit (second call 99% cached, 77% cheaper). `--provider any` lets OpenRouter route each call, so weights can differ between calls and the cache rarely hits. Profiles below `--min-words` (default 200) are skipped. HTTP, auth and credit failures stop the invocation.
 
@@ -112,4 +160,4 @@ rtk .venv\Scripts\python -m pytest tests -q
 rtk .venv\Scripts\python -m unittest discover -s IPIP-NEO-120-compact -v
 ```
 
-See [API contract](docs/pdb-api-contract.md), [design](docs/superpowers/specs/2026-10-23-pdb-ingestion-design.md), and [implementation plan](docs/superpowers/plans/2026-10-23-pdb-ingestion.md). Modeling, psychometric agents and statistical audits are separate future subsystems.
+See [API contract](docs/pdb-api-contract.md), [design](docs/superpowers/specs/2026-10-23-pdb-ingestion-design.md), [implementation plan](docs/superpowers/plans/2026-10-23-pdb-ingestion.md), and [overnight results](docs/results/2026-10-24-overnight.md). Audits: `pdb_ingest audit`; Stage 2 baseline: `pdb_ingest distill`.

@@ -4,7 +4,13 @@
     {
       "name": "panel",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "pdb_ingest", "panel", "--db", "data/pdb-top.duckdb", "--port", "8765"],
+      "runtimeArgs": ["-m", "pdb_ingest", "panel", "--db", "data/pdb-top.duckdb", "--samples", "top", "top2", "--port", "8765"],
+      "port": 8765
+    },
+    {
+      "name": "panel-snapshot",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "pdb_ingest", "panel", "--db", "data/snap/pdb-top-snapshot.duckdb", "--samples", "top", "top2", "--port", "8765"],
       "port": 8765
     }
   ]
