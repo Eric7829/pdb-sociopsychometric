@@ -7,13 +7,14 @@ from .capture import Recorder, allowed_url
 from .models import AccessBlocked, ProfileUnavailable, SchemaError, profile_refusal
 
 class JsonTransport:
-    def __init__(self, request, capture_dir, *, headers=None, sleep=asyncio.sleep, clock=time.monotonic):
+    def __init__(self, request, capture_dir, *, headers=None, sleep=asyncio.sleep, clock=time.monotonic, interval=1):
         self.request=request
         self.recorder=Recorder(capture_dir)
         self.headers=headers or {}
         self.sleep=sleep
         self.clock=clock
         self.last_request=None
+        self.interval=interval  # minimum seconds between PDB requests
         self.attempt=None
 
     async def get(self, path):
@@ -21,7 +22,7 @@ class JsonTransport:
         if not allowed_url(url): raise ValueError('Disallowed API endpoint')
         for attempt in range(3):
             if self.last_request is not None:
-                await self.sleep(max(0,2-(self.clock()-self.last_request)))
+                await self.sleep(max(0,self.interval-(self.clock()-self.last_request)))
             self.last_request=self.clock()
             response=None
             try:

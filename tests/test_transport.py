@@ -47,3 +47,12 @@ async def test_challenge_and_retry_limit(tmp_path):
     r=Request([Response(503,{})]*3)
     with pytest.raises(RuntimeError): await JsonTransport(r,tmp_path,sleep=sleep).get('/api/v1/profile/1')
     assert r.calls==3
+
+async def test_request_interval_is_configurable(tmp_path):
+    slept=[]; now=[0.0]
+    async def sleep(n): slept.append(n); now[0]+=n
+    request=Request([Response(200,{'profiles':[]})]*3)
+    client=JsonTransport(request,tmp_path,sleep=sleep,clock=lambda:now[0],interval=1)
+    for _ in range(3): await client.get('/api/v1/profiles')
+    assert slept==[1,1]
+    assert JsonTransport(request,tmp_path).interval==1

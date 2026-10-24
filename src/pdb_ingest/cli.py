@@ -35,6 +35,7 @@ def main(argv=None):
         sub.add_argument('--capture-dir',type=Path,default=Path('data/run'))
         sub.add_argument('--max-comments',type=int,help='Fetch reply threads only for the first N top-level comments (pinned first); default: all')
         sub.add_argument('--headless',action='store_true')
+        sub.add_argument('--interval',type=float,default=1.0,help='Minimum seconds between PDB requests (default 1)')
     pan=subs.add_parser('panel',help='Local web panel: dataset charts + self-description assessor (127.0.0.1 only)')
     pan.add_argument('--port',type=int,default=8765)
     pan.add_argument('--samples',nargs='+',default=['top'])
@@ -119,7 +120,7 @@ def main(argv=None):
             else:
                 async def run():
                     async with browser_session(args.session,headless=args.headless) as request:
-                        transport=JsonTransport(request,args.capture_dir)
+                        transport=JsonTransport(request,args.capture_dir,interval=args.interval)
                         client=PdbClient(transport,sort='top' if getattr(args,'sort','hot')=='top' else None)
                         async with httpx.AsyncClient() as http:
                             docs=DocumentSource(http,args.capture_dir)
