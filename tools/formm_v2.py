@@ -63,6 +63,9 @@ Your task: first write one short line naming the specific moment or habit from t
 
 '''+FOOTER}
 
+SYSTEM['v3b']=SYSTEM['v3'].replace('answers one question from a paper questionnaire','answers a few questions from a paper questionnaire').replace(
+    'Your task: first write','Your task: for every question, first write')
+
 TASK={'v2':'''Questionnaire, part {block} of {blocks}. For each question, choose the answer that comes closest to how this person would say they usually feel or act.
 
 {items}
@@ -73,11 +76,19 @@ Call {tool} with a recall line and "A" or "B" for every question above.''',
 {items}
 
 Call {tool} with a recall line and "A" or "B".'''}
+TASK['v3b']='''Answer each question on its own, as this person would. Choose the answer that comes closest to how they would say they usually feel or act.
+
+{items}
+
+Call {tool} with a recall line and "A" or "B" for every question above.'''
 
 def blocks(version):
     """v2: fixed shuffled order (same for every profile) in BLOCKS parts; v3: one item per call."""
     qs=formm.load_questions(); order=[q['number'] for q in qs]; random.Random(2026).shuffle(order)
     if version=='v3': return [[n] for n in order]
+    if version=='v3b':   # one item from each dichotomy per call (no dimension is ever seen twice in a call)
+        params=formm.load_parameters(); by={d:[n for n in order if params[n]['dichotomy']==d] for d in DICHOTOMIES}
+        return [[by[d][i] for d in DICHOTOMIES if i<len(by[d])] for i in range(max(map(len,by.values())))]
     size=-(-len(order)//BLOCKS); return [order[i:i+size] for i in range(0,len(order),size)]
 
 def render(q,label):
@@ -129,9 +140,9 @@ async def run_one(llm,store,n,sem,version,temperature=.7,seed=0,max_words=None,t
 async def run(db,limit,concurrency,version,only=None,seed=0,max_words=None,tag=''):
     import httpx
     store,rows=profiles(db); ids=sorted(rows)
-    if version=='v3': random.Random(7).shuffle(ids)   # a fixed random order, so a smaller --limit is a prefix of a larger one
+    if version in ('v3','v3b'): random.Random(7).shuffle(ids)   # a fixed random order, so a smaller --limit is a prefix of a larger one
     ids=sorted(only) if only else sorted(ids[:limit])
-    sem=asyncio.Semaphore(concurrency*(16 if version=='v3' else BLOCKS)); gate=asyncio.Semaphore(concurrency)
+    sem=asyncio.Semaphore(concurrency*({'v3':16,'v3b':8}.get(version,BLOCKS))); gate=asyncio.Semaphore(concurrency)
     async with httpx.AsyncClient() as http:
         llm=OpenRouter(http,load_api_key(),DEFAULT_MODEL,provider=DEFAULT_PROVIDER)
         async def guarded(n):
@@ -147,7 +158,7 @@ def report(db):
     for n,cont,dom in c.execute("""SELECT e.profile_num,e.form_m_continuous,e.ipip_domains_json FROM psychometric_evaluations e JOIN agent_runs r USING(run_id)
                                    WHERE r.prompt_version='stage3-v1' AND r.complete ORDER BY r.seed""").fetchall():
         if n not in v1: v1[n]=json.loads(cont); ipip[n]={k:v['raw'] for k,v in json.loads(dom).items()}
-    cached={v:{n:json.loads(f.read_text(encoding='utf-8')) for n in rows if (f:=out_dir(v)/f'{n}.json').exists()} for v in ('v2','v3')}
+    cached={v:{n:json.loads(f.read_text(encoding='utf-8')) for n in rows if (f:=out_dir(*v.split(':'))/f'{n}.json').exists()} for v in ('v2','v3','v3:-cap8k','v3b:-cap8k')}
     crowd={n:panel.modal(r['mbti_counts']) for n,r in rows.items()}
     def summary(ids,types,thetas):
         y=[crowd[n] for n in ids]; t=[types[n] for n in ids]; counts=Counter(t)
@@ -161,7 +172,7 @@ def report(db):
                 'big5_gap_to_form_m_2009':round(float(np.mean([abs(a-b) for dom in 'EACON' for a,b in zip(full[dom],FORM_M_2009[dom])])),3)}
     thetas_of=lambda d:{n:{k:d[n]['scored']['dichotomyResults'][k]['theta'] for k in DICHOTOMIES} for n in d}
     res={}
-    for v in ('v2','v3'):
+    for v in cached:
         ids=sorted(cached[v])
         if not ids: continue
         a=summary(ids,{n:rows[n]['form_m'] for n in ids},{n:v1[n] for n in ids}); b=summary(ids,{n:cached[v][n]['scored']['type'] for n in ids},thetas_of(cached[v]))
@@ -174,7 +185,7 @@ def report(db):
 def main():
     p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('cmd',choices=('run','report')); p.add_argument('--db',type=Path,required=True)
-    p.add_argument('--version',choices=('v2','v3'),default='v2')
+    p.add_argument('--version',choices=('v2','v3','v3b'),default='v2')
     p.add_argument('--limit',type=int,default=None); p.add_argument('--concurrency',type=int,default=3)
     p.add_argument('--profiles',default='',help='Comma-separated profile numbers (overrides --limit)')
     p.add_argument('--seed',type=int,default=0); p.add_argument('--max-words',type=int,default=None)
