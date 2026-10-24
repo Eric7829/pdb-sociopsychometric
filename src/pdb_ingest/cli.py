@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import sys
 import httpx
+from .annotate import annotate
 from .battery import PROMPT_VERSION,PROMPTS,assess
 from .browser import browser_session
 from .llm import DEFAULT_MODEL,DEFAULT_PROVIDER,OpenRouter,load_api_key
@@ -32,6 +33,8 @@ def main(argv=None):
         sub.add_argument('--capture-dir',type=Path,default=Path('data/run'))
         sub.add_argument('--max-comments',type=int,help='Fetch reply threads only for the first N top-level comments (pinned first); default: all')
         sub.add_argument('--headless',action='store_true')
+    ann=subs.add_parser('annotate',help='Backfill span annotations and reply context from captures (offline)')
+    ann.add_argument('--capture-dir',type=Path,required=True)
     rep=subs.add_parser('replay'); rep.add_argument('directory',type=Path)
     rep.add_argument('--max-comments',type=int,help='Must match the cap used when capturing')
     exp=subs.add_parser('export'); exp.add_argument('--output',type=Path,required=True)
@@ -69,6 +72,9 @@ def main(argv=None):
         with Store(args.db) as store:
             if args.command=='export':
                 print(json.dumps({'exported':store.export_jsonl(args.output)})); return 0
+            if args.command=='annotate':
+                stats=annotate(store,args.capture_dir)
+                print(json.dumps(stats)); return 1 if stats['raw_text_mismatches'] else 0
             if args.command=='assess':
                 nums=args.profile_nums+([int(x) for x in args.profiles_file.read_text().split()] if args.profiles_file else [])
                 async def run_assess():

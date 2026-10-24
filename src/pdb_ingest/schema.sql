@@ -57,3 +57,10 @@ CREATE TABLE IF NOT EXISTS agent_reflections (
  profile_num BIGINT, corpus_sha256 TEXT, model TEXT, prompt_version TEXT, reflections_json JSON, reasoning TEXT,
  response_json JSON, cost_usd DOUBLE, created_at TEXT, PRIMARY KEY(profile_num,corpus_sha256,model,prompt_version)
 );
+CREATE TABLE IF NOT EXISTS text_spans (
+ profile_num BIGINT, source_type TEXT, source_ref TEXT, ordinal INTEGER, kind TEXT, start_pos INTEGER, end_pos INTEGER,
+ PRIMARY KEY(profile_num,source_type,source_ref,ordinal)
+);
+CREATE TABLE IF NOT EXISTS reply_context (
+ profile_num BIGINT, comment_id TEXT PRIMARY KEY, context_comment_id TEXT, context_user_id TEXT, context_text TEXT
+);
