@@ -157,3 +157,13 @@ async def test_prompt_variants_are_stored_and_compared(tmp_path):
     assert out['profiles']==6 and set(out['domains'])==set('NEOAC') and 0<=out['form_m_letter_agreement']<=1
     assert set(out['ipip_neutral_share'])=={'stage3-v1','stage3-predict-v1'}
     assert set(result['stage3-v1']['retest_r'])==set('NEOAC')
+
+async def test_openrouter_rate_limit_backs_off_patiently():
+    tool=battery_calls(load_ipip().load_items())[-1][2]
+    ok={'choices':[{'message':{'tool_calls':[{'function':{'name':'submit_self_typing','arguments':'{"mbti":"INFP"}'}}]}}]}
+    t=Transport([httpx.Response(429,json={},headers={'retry-after':'30'})]*6+[httpx.Response(200,json=ok)])
+    slept=[]
+    async def sleep(n): slept.append(n)
+    async with httpx.AsyncClient(transport=t) as http:
+        result=await OpenRouter(http,'k',sleep=sleep).call_tool([],tool,temperature=0,seed=1)
+    assert result['arguments']=={'mbti':'INFP'} and len(slept)==6 and min(slept)>=30

@@ -34,15 +34,18 @@ class OpenRouter:
               # Native thinking off: DeepInfra's default already is, and 'effort: low' would turn it ON (+1.2k tokens/call).
               # The predict style asks for its reasoning explicitly in the tool arguments instead.
               'reasoning':{'enabled':False}}
-        for attempt in range(4):
+        # 8 attempts: provider 429s come in bursts; waits honour Retry-After and grow to ~2 min in total before giving up.
+        for attempt in range(8):
             try:
                 response=await self.http.post(URL,headers={'Authorization':'Bearer '+self.api_key},json=body,timeout=300)
             except httpx.HTTPError as error:
-                if attempt==3: raise LlmError(f'OpenRouter transport: {type(error).__name__}') from error
+                if attempt==7: raise LlmError(f'OpenRouter transport: {type(error).__name__}') from error
                 await self.sleep(2**(attempt+1)); continue
             if response.status_code==429 or response.status_code>=500:
-                if attempt==3: raise LlmError(f'OpenRouter retry limit: HTTP {response.status_code}')
-                await self.sleep(2**(attempt+2)); continue
+                if attempt==7: raise LlmError(f'OpenRouter retry limit: HTTP {response.status_code}')
+                try: wait=float(response.headers.get('retry-after',''))
+                except ValueError: wait=0
+                await self.sleep(min(60,max(wait,2**(attempt+1)))); continue
             if response.status_code!=200: raise LlmError(f'OpenRouter HTTP {response.status_code}: {response.text[:300]}')
             data=response.json()
             if 'error' in data: raise LlmError(f"OpenRouter error: {json.dumps(data['error'])[:300]}")
