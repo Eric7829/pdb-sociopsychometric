@@ -85,6 +85,12 @@ class Segment:
     ramble_word_count: int
 
 @dataclass
+class Span:
+    kind: str  # PROSE, PROMPT, ANSWER, ANSWER_LABEL, QUOTE
+    start: int
+    end: int
+
+@dataclass
 class Distribution:
     system_name: str
     observed_counts: dict[str,int]
