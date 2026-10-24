@@ -16,15 +16,13 @@ import sys
 import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from compare_llm_classifier import SYSTEM,tool
 from compare_type_models import letters_to_types,pool,TYPES
+from distill_jev import MODEL,jev_decide
 from run_stage2 import readonly_store
 from pdb_ingest import embed,panel
 from pdb_ingest.battery import MBTI_TYPES
 from pdb_ingest.encoder_text import encoder_view
-from pdb_ingest.llm import OpenRouter,ToolCallError,load_api_key
-
-MODEL='typesafe/jev-1.14'  # not jev-router: that forwards to other models (GLM, Gemini, Grok, ...)
+from pdb_ingest.llm import load_api_key
 
 def wilson(k,n,z=1.96):
     if not n: return (float('nan'),)*2
@@ -51,19 +49,14 @@ async def jev_labels(data,out_dir,max_words=30000):
     import httpx
     out_dir.mkdir(parents=True,exist_ok=True); gate=asyncio.Semaphore(4); preds={}; cost=[0.0]
     async with httpx.AsyncClient() as http:
-        llm=OpenRouter(http,load_api_key(),MODEL,provider=None)
+        key=load_api_key()
         async def one(n):
             f=out_dir/f'{n}.json'
             if not f.exists():
-                msgs=[{'role':'system','content':SYSTEM},{'role':'user','content':'<text>\n'+' '.join(data[n][0].split()[:max_words])+'\n</text>'}]
-                for attempt in range(3):
-                    try:
-                        async with gate: r=await llm.call_tool(msgs,tool(),temperature=0,seed=1+attempt)
-                    except ToolCallError: continue
-                    cost[0]+=(r['usage'] or {}).get('cost',0) or 0
-                    f.write_text(json.dumps({'type':r['arguments']['type'],'probabilities':r['arguments']['probabilities'],'usage':r['usage'],'model':r['model'],'provider':r['provider']}),encoding='utf-8')
-                    break
-                else: return
+                try:
+                    async with gate: r=await jev_decide(http,key,' '.join(data[n][0].split()[:max_words]))
+                except Exception: return
+                cost[0]+=(r['usage'] or {}).get('cost',0) or 0; f.write_text(json.dumps(r),encoding='utf-8')
             probs=json.loads(f.read_text(encoding='utf-8'))['probabilities']; preds[n]=max(probs,key=lambda t:float(probs.get(t,0)))
         await asyncio.gather(*(one(n) for n in data))
     return preds,cost[0]

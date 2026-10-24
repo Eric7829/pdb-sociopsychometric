@@ -15,20 +15,35 @@ import sys
 import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from compare_llm_classifier import SYSTEM,tool
 from compare_type_models import evaluate,letters_to_types,pool,TYPES
 from run_stage2 import readonly_store
 from pdb_ingest import panel
 from pdb_ingest.battery import MBTI_TYPES
-from pdb_ingest.llm import OpenRouter,ToolCallError,load_api_key
+from pdb_ingest.llm import load_api_key
 
-MODEL='typesafe/jev-1.14'  # not jev-router: that forwards to other models (GLM, Gemini, Grok, ...)
+MODEL='typesafe/jev-1.14'  # a decision model (choice -> probabilities); jev-router instead forwards to chat LLMs
 OUT=Path('data/stage2/llm')/MODEL.replace('/','--')
+DECISIONS='https://openrouter.ai/api/alpha/decisions'
+QUESTION={'type':'choice','instructions':'Which MBTI type would a personality-typing forum crowd most likely vote for the author of this '
+          'writing? Typology labels such as MBTI codes have been removed from it.','criteria':{t:f'The crowd votes {t}.' for t in MBTI_TYPES}}
 
-def load(db):
+async def jev_decide(http,key,text,model=MODEL,retries=6):
+    """One Decisions API call; returns {'type','probabilities','confidence','usage','model','provider'}."""
+    body={'model':model,'state':{'writing':text},'questions':{'mbti':QUESTION}}
+    for attempt in range(retries):
+        r=await http.post(DECISIONS,json=body,headers={'Authorization':f'Bearer {key}'},timeout=180)
+        if r.status_code in (429,500,502,503,504): await asyncio.sleep(min(60,2**(attempt+1))); continue
+        if r.status_code!=200: raise RuntimeError(f'Decisions HTTP {r.status_code}: {r.text[:300]}')
+        d=r.json(); a=d['answers']['mbti']
+        if a.get('type')!='choice' or not a.get('probabilities'): raise RuntimeError(f'Unexpected answer: {json.dumps(a)[:300]}')
+        return {'type':a['choice'],'probabilities':a['probabilities'],'confidence':a.get('confidence'),'usage':d.get('usage'),
+                'model':d.get('model'),'provider':d.get('provider')}
+    raise RuntimeError(f'Decisions API still failing after {retries} attempts')
+
+def load(db,samples=('top',)):
     import hashlib
     from pdb_ingest.encoder_text import encoder_view
-    store=readonly_store(db); rows=panel.load_rows(store.connection)
+    store=readonly_store(db); rows=panel.load_rows(store.connection,samples)
     cache=Path('data/stage2/emb/intfloat--multilingual-e5-small/main'); docs={}; vecs={}
     for n,r in rows.items():
         if 'mbti_counts' not in r: continue
@@ -42,24 +57,17 @@ async def label(ids,docs,max_words=30000,concurrency=4):
     import httpx
     OUT.mkdir(parents=True,exist_ok=True); gate=asyncio.Semaphore(concurrency); stats={'cached':0,'labelled':0,'failed':0,'cost':0.0}
     async with httpx.AsyncClient() as http:
-        llm=OpenRouter(http,load_api_key(),MODEL,provider=None)
+        key=load_api_key()
         async def one(n):
             f=OUT/f'{n}.json'
             if f.exists(): stats['cached']+=1; return
-            msgs=[{'role':'system','content':SYSTEM},{'role':'user','content':'<text>\n'+' '.join(docs[n].split()[:max_words])+'\n</text>'}]
-            info={}
-            for attempt in range(3):
-                try:
-                    async with gate: r=await llm.call_tool(msgs,tool(),temperature=0,seed=1+attempt)
-                except ToolCallError as error:
-                    info=error.args[1] if len(error.args)>1 else {}; stats['cost']+=((info or {}).get('usage') or {}).get('cost',0) or 0
-                    continue
-                probs=r['arguments']['probabilities']; stats['cost']+=(r['usage'] or {}).get('cost',0) or 0; stats['labelled']+=1
-                f.write_text(json.dumps({'type':r['arguments']['type'],'probabilities':probs,'usage':r['usage'],'model':r['model'],'provider':r['provider']}),encoding='utf-8')
-                print(json.dumps({'event':'labelled','profile_num':n,'type':r['arguments']['type']}),flush=True)
-                return
-            stats['failed']+=1   # left uncached so a later run retries it
-            print(json.dumps({'event':'failed','profile_num':n,'content':str((info or {}).get('content'))[:200]}),flush=True)
+            try:
+                async with gate: r=await jev_decide(http,key,' '.join(docs[n].split()[:max_words]))
+            except Exception as error:   # left uncached so a later run retries it
+                stats['failed']+=1; print(json.dumps({'event':'failed','profile_num':n,'error':str(error)[:200]}),flush=True); return
+            stats['cost']+=(r['usage'] or {}).get('cost',0) or 0; stats['labelled']+=1
+            f.write_text(json.dumps(r),encoding='utf-8')
+            print(json.dumps({'event':'labelled','profile_num':n,'type':r['type'],'model':r['model']}),flush=True)
         await asyncio.gather(*(one(n) for n in ids))
     return stats
 
@@ -126,8 +134,10 @@ def evaluate_all(ids,docs,vecs,y):
 def main():
     p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('cmd',choices=('label','evaluate')); p.add_argument('--db',type=Path,required=True)
-    args=p.parse_args(); ids,docs,vecs,y=load(args.db)
-    if args.cmd=='label': print(json.dumps(asyncio.run(label(ids,docs))))
+    p.add_argument('--limit',type=int,default=None,help='Label only the first N profiles (a smoke test)')
+    p.add_argument('--samples',default='top',help="Comma-separated crawl samples, e.g. top,top2 ('es' is type-filtered, so it skews base rates)")
+    args=p.parse_args(); ids,docs,vecs,y=load(args.db,tuple(args.samples.split(',')))
+    if args.cmd=='label': print(json.dumps(asyncio.run(label(ids[:args.limit],docs))))
     else:
         res=evaluate_all(ids,docs,vecs,y); Path('data/stage2/jev_distill.json').write_text(json.dumps(res,indent=1),encoding='utf-8')
         print(json.dumps(res,indent=1))
