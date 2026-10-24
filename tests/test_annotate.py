@@ -55,3 +55,13 @@ async def test_unicode_line_separators_inside_captured_text(tmp_path):
     rec.record('GET',API+'comment_replies?'+urlencode(dict(limit=100,offset=0,comment_id=10)),None,200,
                {'comments':[{**R,'comment':'line one line two\x85end'}],'has_more':False})
     assert captured_comments(tmp_path/'run')['11'].text=='line one line two\x85end'
+
+async def test_later_comment_quoting_the_creator_does_not_mark_creator_text(tmp_path):
+    later={'id':12,'user_id':99,'username':'voter','comment':'you said you love details is wrong I daydream, no way','parent_id':10,'reply_to_user_id':42}
+    store=await build(tmp_path)
+    Recorder(tmp_path/'run').record('GET',API+'comment_replies?'+urlencode(dict(limit=100,offset=100,comment_id=10)),None,200,{'comments':[later],'has_more':False})
+    with store:
+        annotate(store,tmp_path/'run')
+        spans=store.connection.execute("select kind,start_pos,end_pos from text_spans where source_ref='11' order by ordinal").fetchall()
+    text=R['comment']
+    assert [(k,text[a:b]) for k,a,b in spans]==[('QUOTE','"you are clearly a sensor because you love details"'),('PROSE','is wrong, I daydream.')]

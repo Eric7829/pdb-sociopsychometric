@@ -27,7 +27,8 @@ def annotate(store,capture_dir):
             if '\n\n'.join(s.original_text[x.start:x.end] for x in base if x.kind in ('PROSE','ANSWER'))!=s.raw_text: stats['raw_text_mismatches']+=1
             own=comments.get(s.source_ref) if s.source_type!='GOOGLE_DOC' else None
             thread=threads[own.parent_id or own.comment_id] if own else []
-            others=[c.text for c in thread if c.author_id!=creator and c.text.strip()]
+            # Only earlier comments can be quoted; later ones that quote the creator must not mark the creator's own words.
+            others=[c.text for c in thread if c.author_id!=creator and c.text.strip() and int(c.comment_id)<int(own.comment_id)] if own else []
             quotes=quote_ranges(s.original_text,others)
             spans=merge_quotes(base,quotes,s.original_text)
             span_rows+=[(n,s.source_type,s.source_ref,i,x.kind,x.start,x.end) for i,x in enumerate(spans)]
