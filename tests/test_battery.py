@@ -142,9 +142,11 @@ async def test_prompt_variants_are_stored_and_compared(tmp_path):
         for version in PROMPTS:
             stats=await assess(store,VaryingLlm(),nums,runs=2,prompt_version=version)
             assert stats['succeeded']==12
-        assert store.connection.execute("select count(distinct prompt_version) from agent_runs").fetchone()[0]==3
-        # Reflections are generated once per profile and reused by both predict-style runs.
-        assert store.connection.execute("select count(*) from agent_reflections").fetchone()[0]==6
+        from pdb_ingest.battery import STYLES
+        assert store.connection.execute("select count(distinct prompt_version) from agent_runs").fetchone()[0]==len(PROMPTS)
+        # Reflections are generated once per profile and version, and reused by both runs of that version.
+        predict_versions=sum(v.startswith('predict') for v in STYLES.values())
+        assert store.connection.execute("select count(*) from agent_reflections").fetchone()[0]==6*predict_versions
         system=store.connection.execute("select count(*) from agent_calls c join agent_runs r using(run_id) where r.prompt_version='stage3-predict-v1' and c.user_prompt like '%predict how the participant%'").fetchone()[0]
         assert system==12*7
     assert cp.select(tmp_path/'ab.duckdb',3)==sorted(nums)[:3]
@@ -167,3 +169,29 @@ async def test_openrouter_rate_limit_backs_off_patiently():
     async with httpx.AsyncClient(transport=t) as http:
         result=await OpenRouter(http,'k',sleep=sleep).call_tool([],tool,temperature=0,seed=1)
     assert result['arguments']=={'mbti':'INFP'} and len(slept)==6 and min(slept)>=30
+
+def test_lean_predict_variant_uses_four_calls_and_short_notes():
+    from pdb_ingest.battery import battery_calls,load_ipip
+    calls=battery_calls(load_ipip().load_items(),'predict_lite')
+    assert [c[0] for c in calls]==['ipip_1','ipip_2','form_m_1','self_typing']
+    assert sorted(k for c in calls[:2] for k in c[3])==list(range(1,121)) and sorted(calls[2][3])==list(range(1,94))
+    props=calls[0][2]['function']['parameters']['properties']
+    assert list(props)[0]=='notes' and '120 words' in props['notes']['description'] and 'per item' in calls[0][1]
+
+def test_corpus_cap_keeps_priority_segments_in_original_order():
+    from pdb_ingest.battery import corpus_text
+    segs=[seg('short comment here','AUTHOR_COMMENT'),seg(' '.join(['doc']*50),'GOOGLE_DOC'),seg('pinned words here','PINNED_COMMENT'),
+          seg(' '.join(['long']*30),'AUTHOR_COMMENT')]
+    capped=corpus_text(segs,max_words=85)
+    assert 'pinned words' in capped and 'doc doc' in capped and 'long long' in capped and 'short comment' not in capped
+    assert capped.index('doc doc')<capped.index('pinned words')<capped.index('long long')
+    assert corpus_text(segs)==corpus_text(segs,max_words=None)
+
+async def test_lean_predict_variant_runs_end_to_end(tmp_path):
+    from pdb_ingest.battery import PROMPTS,STYLES,CORPUS_CAPS
+    assert STYLES['stage3-predict-v2']=='predict_lite' and CORPUS_CAPS['stage3-predict-v2']==8000
+    class Lite(VaryingLlm): pass
+    llm=Lite()
+    run=await run_battery(llm,7,[seg('I write at night and avoid parties. '*20)],prompt_version='stage3-predict-v2',reflections=['note one','note two'])
+    assert run['complete'] and len(run['evaluation']['ipip_responses'])==120 and len(run['evaluation']['form_m_responses'])==93
+    assert len({c['call_name'] for c in run['calls']})==4
