@@ -32,7 +32,7 @@ from pdb_ingest.encoder_text import EXTRA_JARGON
 from pdb_ingest.llm import DEFAULT_MODEL,DEFAULT_PROVIDER,OpenRouter,ToolCallError,load_api_key
 
 BLOCKS=4; DICHOTOMIES=list(formm.DICHOTOMIES)
-out_dir=lambda version:Path(f'data/stage2/formm-{version}')
+out_dir=lambda version,tag='':Path(f'data/stage2/formm-{version}{tag}')
 
 HOW_PEOPLE_ANSWER='''How real people fill in questionnaires like this:
 - They answer from their self-image: how they believe they usually are. That includes flattering beliefs that their behaviour does not always support, and blind spots they would not admit. A self-described lazy person can still pick "systematic" if they see their choices as deliberate.
@@ -97,10 +97,10 @@ def profiles(db):
     store=readonly_store(db); rows=panel.load_rows(store.connection,('top','top2'))
     return store,{n:r for n,r in rows.items() if r.get('form_m') and 'mbti_counts' in r}
 
-async def run_one(llm,store,n,sem,version,temperature=.7,seed=0):
-    f=out_dir(version)/f'{n}.json'
+async def run_one(llm,store,n,sem,version,temperature=.7,seed=0,max_words=None,tag=''):
+    f=out_dir(version,tag)/f'{n}.json'
     if f.exists(): return json.loads(f.read_text(encoding='utf-8'))
-    corpus=EXTRA_JARGON.sub('',corpus_text(store.load_snapshot(n).segments,'scrubbed'))
+    corpus=EXTRA_JARGON.sub('',corpus_text(store.load_snapshot(n).segments,'scrubbed',max_words))   # max_words keeps pinned + docs first
     system=SYSTEM[version].format(corpus=corpus); qs={q['number']:q for q in formm.load_questions()}; parts=blocks(version)
     answers={}; recalls={}; usage=[]; cost=0.0; model=None
     async def block(i,nums):
@@ -120,23 +120,23 @@ async def run_one(llm,store,n,sem,version,temperature=.7,seed=0):
         raise ValueError(f'profile {n} call {i+1}: no valid answer after 3 attempts')
     await block(0,parts[0])   # warm the provider's prefix cache
     await asyncio.gather(*(block(i,nums) for i,nums in enumerate(parts) if i))
-    out={'version':version,'profile_num':n,'model':model,'cost_usd':cost,'usage':usage,'answers':answers,'recalls':recalls,
+    out={'version':version,'tag':tag,'seed':seed,'max_words':max_words,'profile_num':n,'model':model,'cost_usd':cost,'usage':usage,'answers':answers,'recalls':recalls,
          'corpus_words':len(corpus.split()),'scored':formm.score(answers)}
-    out_dir(version).mkdir(parents=True,exist_ok=True); f.write_text(json.dumps(out),encoding='utf-8')
+    out_dir(version,tag).mkdir(parents=True,exist_ok=True); f.write_text(json.dumps(out),encoding='utf-8')
     print(json.dumps({'event':'scored','profile_num':n,'type':out['scored']['type'],'cost_usd':round(cost,5)}),flush=True)
     return out
 
-async def run(db,limit,concurrency,version):
+async def run(db,limit,concurrency,version,only=None,seed=0,max_words=None,tag=''):
     import httpx
     store,rows=profiles(db); ids=sorted(rows)
     if version=='v3': random.Random(7).shuffle(ids)   # a fixed random order, so a smaller --limit is a prefix of a larger one
-    ids=sorted(ids[:limit])
+    ids=sorted(only) if only else sorted(ids[:limit])
     sem=asyncio.Semaphore(concurrency*(16 if version=='v3' else BLOCKS)); gate=asyncio.Semaphore(concurrency)
     async with httpx.AsyncClient() as http:
         llm=OpenRouter(http,load_api_key(),DEFAULT_MODEL,provider=DEFAULT_PROVIDER)
         async def guarded(n):
             async with gate:
-                try: return await run_one(llm,store,n,sem,version)
+                try: return await run_one(llm,store,n,sem,version,seed=seed,max_words=max_words,tag=tag)
                 except Exception as error: print(json.dumps({'event':'failed','profile_num':n,'error':str(error)[:200]}),flush=True)
         done=[r for r in await asyncio.gather(*(guarded(n) for n in ids)) if r]
     print(json.dumps({'version':version,'profiles':len(ids),'scored':len(done),'cost_usd':round(sum(r['cost_usd'] for r in done),4)}))
@@ -176,8 +176,12 @@ def main():
     p.add_argument('cmd',choices=('run','report')); p.add_argument('--db',type=Path,required=True)
     p.add_argument('--version',choices=('v2','v3'),default='v2')
     p.add_argument('--limit',type=int,default=None); p.add_argument('--concurrency',type=int,default=3)
+    p.add_argument('--profiles',default='',help='Comma-separated profile numbers (overrides --limit)')
+    p.add_argument('--seed',type=int,default=0); p.add_argument('--max-words',type=int,default=None)
+    p.add_argument('--tag',default='',help='Output directory suffix, e.g. -cap8k (data/stage2/formm-v3-cap8k)')
     args=p.parse_args()
-    if args.cmd=='run': asyncio.run(run(args.db,args.limit,args.concurrency,args.version))
+    if args.cmd=='run': asyncio.run(run(args.db,args.limit,args.concurrency,args.version,[int(x) for x in args.profiles.split(',') if x],
+                                        args.seed,args.max_words,args.tag))
     else: report(args.db)
 
 if __name__=='__main__': main()
