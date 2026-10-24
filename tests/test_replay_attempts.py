@@ -104,3 +104,10 @@ def test_live_attempts_are_tagged_and_replayable(tmp_path):
     with Store(tmp_path/'replay.duckdb') as store:
         assert replay(run,store)['succeeded']==1
         assert texts(store)==['second']
+
+def test_replay_survives_unicode_line_separators(tmp_path):
+    rec=Recorder(tmp_path/'run')
+    rec.record('GET',DETAIL,None,200,detail(),attempt='a1')
+    rec.record('GET',page_url(0),None,200,page(2,'one two',False),attempt='a1')
+    with Store(tmp_path/'replay.duckdb') as store:
+        assert replay(tmp_path/'run',store)['succeeded']==1 and texts(store)==['one two']

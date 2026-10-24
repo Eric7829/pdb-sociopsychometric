@@ -9,7 +9,7 @@ import re
 from urllib.parse import urlsplit,parse_qsl
 import uuid
 from .adapters import parse_profile
-from .capture import Capture
+from .capture import Capture,jsonl_rows
 from .client import PdbClient
 from .crawl import collect_comments,match_creator
 from .gdocs import extract_documents,fetch_document
@@ -177,16 +177,15 @@ class ReplayDocuments:
 def load_attempts(capture_dir):
     """Group evidence by recorded attempt (None = untagged legacy), in first-seen order."""
     attempts={}
-    for line in (capture_dir/'pdb.jsonl').read_text(encoding='utf-8').splitlines():
-        c=Capture(**json.loads(line))
+    for row in jsonl_rows(capture_dir/'pdb.jsonl'):
+        c=Capture(**row)
         digest=hashlib.sha256(json.dumps(c.payload,ensure_ascii=False,sort_keys=True).encode('utf-8')).hexdigest()
         if digest!=c.sha256: raise SchemaError('Capture integrity mismatch')
         attempts.setdefault(c.attempt,{}).setdefault(request_key(c.url),[]).append(c)
     documents={}
     path=capture_dir/'documents.jsonl'
     if path.exists():
-        for line in path.read_text(encoding='utf-8').splitlines():
-            row=json.loads(line)
+        for row in jsonl_rows(path):
             documents.setdefault((row.get('attempt'),row['profile_num']),{}).setdefault(row['document']['key'],[]).append(row['document'])
     return attempts,documents
 

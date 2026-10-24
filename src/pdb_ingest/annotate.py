@@ -2,6 +2,7 @@
 from collections import defaultdict
 import json
 from .adapters import parse_comment
+from .capture import jsonl_rows
 from .context import reply_context
 from .quotes import merge_quotes,quote_ranges
 from .text import segment_spans
@@ -9,8 +10,7 @@ from .text import segment_spans
 def captured_comments(capture_dir):
     """comment_id -> Comment from every captured comment/reply page; later captures win."""
     out={}
-    for line in (capture_dir/'pdb.jsonl').read_text(encoding='utf-8').splitlines():
-        row=json.loads(line)
+    for row in jsonl_rows(capture_dir/'pdb.jsonl'):
         if ('/api/v1/comments/' in row['url'] or '/api/v1/comment_replies' in row['url']) and isinstance(row['payload'],dict):
             for c in row['payload'].get('comments') or []: out[str(c['id'])]=parse_comment(c)
     return out

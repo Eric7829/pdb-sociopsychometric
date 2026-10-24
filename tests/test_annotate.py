@@ -48,3 +48,10 @@ async def test_cli_annotate(tmp_path,capsys):
     store=await build(tmp_path); store.connection.close()
     assert main(['annotate','--db',str(tmp_path/'a.duckdb'),'--capture-dir',str(tmp_path/'run')])==0
     assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])['quotes']==1
+
+async def test_unicode_line_separators_inside_captured_text(tmp_path):
+    from pdb_ingest.annotate import captured_comments
+    rec=Recorder(tmp_path/'run')
+    rec.record('GET',API+'comment_replies?'+urlencode(dict(limit=100,offset=0,comment_id=10)),None,200,
+               {'comments':[{**R,'comment':'line one line two\x85end'}],'has_more':False})
+    assert captured_comments(tmp_path/'run')['11'].text=='line one line two\x85end'

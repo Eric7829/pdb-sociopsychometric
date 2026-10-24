@@ -14,6 +14,12 @@ MAX_JSON_BYTES = 20 * 1024 * 1024
 SECRET_KEYS = {'token', 'access_token', 'refresh_token', 'authorization', 'cookie', 'password', 'api_key'}
 
 
+def jsonl_rows(path: Path) -> list:
+    """Parse a JSONL file split on newline only: str.splitlines() would also break on U+2028/U+0085 that captured text
+    (written with ensure_ascii=False) can contain."""
+    return [json.loads(line) for line in path.read_text(encoding='utf-8').split('\n') if line.strip()]
+
+
 def allowed_url(url: str) -> bool:
     parts = urlsplit(url)
     sensitive = any(part in {'oauth', 'auth', 'login', 'logout', 'register', 'send_digits', 'verify_digits'} for part in parts.path.split('/'))
