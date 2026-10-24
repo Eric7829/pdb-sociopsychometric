@@ -122,8 +122,7 @@ class Assessor:
 
     def embed(self,views):
         from . import embed
-        tokenize,encode,stats=self.encoder; mx=stats.get('max_tokens',8192)
-        return embed.profile_vector(embed.embed_segments(views,tokenize,encode,max_tokens=mx,stride=min(512,mx//4),normalize_segments=True))
+        return embed.profile_vector(embed.embed_views(views,self.encoder))
 
     def assess(self,text):
         np=self.np; scrubbed=clean(text,True); n_words=words(scrubbed)

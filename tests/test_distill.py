@@ -151,3 +151,24 @@ def test_stack_averages_zscored_predictions_without_fitting():
     ctm=importlib.util.module_from_spec(spec); spec.loader.exec_module(ctm)
     a=np.array([1.,2.,3.]); b=np.array([10.,30.,20.])
     assert np.allclose(ctm.stack([a,b]),(ctm.zscore(a)+ctm.zscore(b))/2) and np.allclose(ctm.zscore([5,5,5]),0)
+
+def test_last_token_pooling_embeds_only_pooled_text_in_chunks():
+    seen=[]
+    tokenize=lambda text:(list(range(len(text.split()))),[])
+    def embed_ids(ids): seen.append(len(ids)); return [3.0,4.0] if len(ids)>2 else [0.0,1.0]
+    encoder=(tokenize,embed_ids,{'pooling':'last','max_tokens':3})
+    views=[('[CTX] ignore me [/CTX] one two three four five',[(23,46)]),('nothing pooled',[])]
+    (vec,n),(none,zero)=embed.embed_views(views,encoder)
+    assert n==5 and seen==[3,2] and none is None and zero==0
+    # Token-weighted mean of unit chunk vectors (0.6,0.8)x3 and (0,1)x2, renormalised, times the token count.
+    v=[0.6*3/5,(0.8*3+1*2)/5]; norm=(v[0]**2+v[1]**2)**.5
+    assert vec==pytest.approx([v[0]/norm*5,v[1]/norm*5])
+
+def test_embed_views_mean_path_is_unchanged():
+    tokenize=lambda t:(list(range(len(t.split()))),[(i*2,i*2+1) for i in range(len(t.split()))])
+    encoder=(tokenize,lambda ids:[[3.0,4.0] for _ in ids],{'max_tokens':8192})
+    assert embed.embed_views([('a b',[(0,3)])],encoder)==embed.embed_segments([('a b',[(0,3)])],*encoder[:2],normalize_segments=True)
+
+def test_jina_chunks_fit_an_8gb_gpu():
+    # Measured on an RTX 5060 8 GB: 2048 tokens = 0.72 s / 2.0 GB; 8192 tokens spilled into system RAM (11.6 GB, 171 s).
+    assert embed.POOLING[embed.JINA]=='last' and embed.CHUNK_TOKENS[embed.JINA]==2048 and 0<embed.GPU_MEMORY_FRACTION<=.9

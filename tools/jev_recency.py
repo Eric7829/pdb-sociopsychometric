@@ -37,13 +37,12 @@ def acc(hits):
 def corpus(db,encoder,cache):
     """profile -> (doc, e5 vector, crowd modal type, MBTI votes) for profiles with an eligible crowd MBTI distribution."""
     store=readonly_store(db); rows=panel.load_rows(store.connection); out={}
-    tokenize,encode,stats=encoder; mx=stats.get('max_tokens',8192)
+
     votes=dict(store.connection.execute("SELECT profile_num,total_system_votes FROM vote_distributions WHERE system_name='MBTI'").fetchall())
     for n,r in rows.items():
         if 'mbti_counts' not in r: continue
         v=encoder_view(store,n); sha=hashlib.sha256(json.dumps(v,ensure_ascii=False).encode('utf-8')).hexdigest()
-        vec=embed.cached_vector(cache,n,sha,lambda:embed.profile_vector(embed.embed_segments(v,tokenize,encode,max_tokens=mx,
-                                                                                          stride=min(512,mx//4),normalize_segments=True)))
+        vec=embed.cached_vector(cache,n,sha,lambda:embed.profile_vector(embed.embed_views(v,encoder)))
         doc=' '.join(t[a:b] for t,rs in v for a,b in rs)
         if vec is not None and doc.strip(): out[n]=(doc,np.asarray(vec),panel.modal(r['mbti_counts']),int(votes.get(n) or 0))
     return out

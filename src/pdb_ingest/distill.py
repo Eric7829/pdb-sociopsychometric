@@ -138,13 +138,12 @@ def run_distill(store,view='main',*,views_fn=None,encoder=None,out_root='data/st
         from .encoder_text import encoder_view as views_fn
     tokenize,encode,stats=encoder or embed.hf_encoder()
     targets,dropped=load_targets(store.connection,samples=samples)
-    X={}; max_tokens=stats.get('max_tokens',8192); stride=min(512,max_tokens//4)
+    X={}
     cache=Path(out_root)/'emb'/embed.model_slug(stats.get('model','custom'))/view
     for n in sorted(targets):
         views=views_fn(store,n,**VIEWS[view])
         sha=hashlib.sha256(json.dumps(views,ensure_ascii=False).encode('utf-8')).hexdigest()
-        vec=embed.cached_vector(cache,n,sha,lambda:embed.profile_vector(embed.embed_segments(views,tokenize,encode,max_tokens=max_tokens,
-                                                                                              stride=stride,normalize_segments=normalize_segments)))
+        vec=embed.cached_vector(cache,n,sha,lambda:embed.profile_vector(embed.embed_views(views,(tokenize,encode,stats),normalize_segments=normalize_segments)))
         if vec is not None: X[n]=vec
     report={'view':view,'options':VIEWS[view],'normalize_segments':normalize_segments,'samples':list(samples),'targets':len(targets),'embedded':len(X),'dropped_votes_outside_classes':dropped,
             'encoder':{k:v for k,v in stats.items()},'folds':folds,'seed':seed,

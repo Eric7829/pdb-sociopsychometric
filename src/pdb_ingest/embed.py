@@ -1,8 +1,18 @@
 """Frozen-encoder segment embeddings, pooled only over encoder_view's pooled character ranges (torch imported lazily)."""
 from pathlib import Path
 DEFAULT_MODEL='intfloat/multilingual-e5-small'
-# E5 models expect a "passage: " prefix on documents; its tokens are never pooled.
-PREFIXES={'intfloat/multilingual-e5-small':'passage: ','intfloat/multilingual-e5-base':'passage: '}
+# Document prefixes the models were trained with; prefix tokens are never pooled.
+JINA='jinaai/jina-embeddings-v5-text-small-classification'
+PREFIXES={'intfloat/multilingual-e5-small':'passage: ','intfloat/multilingual-e5-base':'passage: ',JINA:'Document: '}
+# Last-token models (decoder embedders) summarise a whole input in its final token, so span-masked mean pooling does not apply:
+# they embed only the pooled text of each segment, chunked.
+POOLING={JINA:'last'}
+# Chunk size for last-token models, picked for an 8 GB GPU: attention memory grows ~quadratically without flash attention
+# (2048 tokens: 0.72 s, 2.0 GB; 8192 tokens: 11.6 GB, spilled into system RAM, 171 s).
+CHUNK_TOKENS={JINA:2048}
+# Cap PyTorch's share of GPU memory so an oversized input raises OOM (then CPU fallback) instead of Windows silently spilling
+# into system RAM and slowing ~200x.
+GPU_MEMORY_FRACTION=.85
 
 def model_slug(name):
     return name.replace('/','--')
@@ -50,6 +60,28 @@ def embed_segments(views,tokenize,encode,*,max_tokens=8192,stride=512,normalize_
         out.append((None if total is None else total.tolist(),count))
     return out
 
+def last_token_segments(views,tokenize,embed_ids,*,max_tokens=8192):
+    """Last-token pooling: embed only each segment's pooled text, in chunks of max_tokens; the segment vector is the
+    token-weighted mean of unit chunk vectors, renormalised and multiplied by the token count (as in embed_segments)."""
+    import numpy as np
+    out=[]
+    for text,ranges in views:
+        ids,_=tokenize(' '.join(text[a:b] for a,b in ranges).strip())
+        if not ids: out.append((None,0)); continue
+        total=None
+        for i in range(0,len(ids),max_tokens):
+            chunk=ids[i:i+max_tokens]; v=np.asarray(embed_ids(chunk),dtype=np.float64); v=v/(np.linalg.norm(v) or 1)
+            total=v*len(chunk) if total is None else total+v*len(chunk)
+        total=total/len(ids); total=total/(np.linalg.norm(total) or 1)*len(ids)
+        out.append((total.tolist(),len(ids)))
+    return out
+
+def embed_views(views,encoder,*,normalize_segments=True):
+    """Segment results for one profile's encoder views, dispatching on the encoder's pooling type."""
+    tokenize,encode,stats=encoder; mx=stats.get('max_tokens',8192)
+    if stats.get('pooling')=='last': return last_token_segments(views,tokenize,encode,max_tokens=mx)
+    return embed_segments(views,tokenize,encode,max_tokens=mx,stride=min(512,mx//4),normalize_segments=normalize_segments)
+
 def profile_vector(segment_results):
     """Mean of all pooled tokens across segments (= segment means weighted by pooled token count)."""
     total=None; count=0
@@ -72,8 +104,22 @@ def hf_encoder(model_name=DEFAULT_MODEL,device=None,prefix=None):
     import torch
     from transformers import AutoModel,AutoTokenizer
     device=device or ('cuda' if torch.cuda.is_available() else 'cpu')
+    if device=='cuda': torch.cuda.set_per_process_memory_fraction(GPU_MEMORY_FRACTION)
     tok=AutoTokenizer.from_pretrained(model_name)
     model=AutoModel.from_pretrained(model_name,torch_dtype=torch.float16 if device=='cuda' else torch.float32).to(device).eval()
+    if POOLING.get(model_name)=='last':
+        prefix=PREFIXES.get(model_name,'') if prefix is None else prefix
+        stats={'cpu_fallbacks':0,'device':device,'model':model_name,'pooling':'last','max_tokens':CHUNK_TOKENS.get(model_name,2048)}
+        def tokenize(text): return tok(text,add_special_tokens=False)['input_ids'],[]
+        def embed_ids(ids,m=model,dev=device):
+            enc=tok(prefix+tok.decode(ids),return_tensors='pt').to(dev)   # the tokenizer adds the model's own special tokens
+            with torch.no_grad(): return m(**enc).last_hidden_state[0,-1].float().cpu().tolist()
+        cpu_holder={}
+        def on_cpu(ids):
+            torch.cuda.empty_cache()
+            cpu_holder.setdefault('m',AutoModel.from_pretrained(model_name,torch_dtype=torch.float32).eval())
+            return embed_ids(ids,cpu_holder['m'],'cpu')
+        return tokenize,with_cpu_fallback(embed_ids,on_cpu,stats,(torch.cuda.OutOfMemoryError,)),stats
     # Content tokens per window: the model's position limit minus CLS/SEP.
     cpu_model=None; stats={'cpu_fallbacks':0,'device':device,'model':model_name,'max_tokens':min(tok.model_max_length,8192)-2}
     def raw_tokenize(text):
