@@ -22,7 +22,7 @@ from pdb_ingest import panel
 from pdb_ingest.battery import MBTI_TYPES
 from pdb_ingest.llm import OpenRouter,ToolCallError,load_api_key
 
-MODEL='typesafe/jev-router'
+MODEL='typesafe/jev-1.14'  # not jev-router: that forwards to other models (GLM, Gemini, Grok, ...)
 OUT=Path('data/stage2/llm')/MODEL.replace('/','--')
 
 def load(db):
@@ -55,7 +55,7 @@ async def label(ids,docs,max_words=30000,concurrency=4):
                     info=error.args[1] if len(error.args)>1 else {}; stats['cost']+=((info or {}).get('usage') or {}).get('cost',0) or 0
                     continue
                 probs=r['arguments']['probabilities']; stats['cost']+=(r['usage'] or {}).get('cost',0) or 0; stats['labelled']+=1
-                f.write_text(json.dumps({'type':r['arguments']['type'],'probabilities':probs,'usage':r['usage'],'provider':r['provider']}),encoding='utf-8')
+                f.write_text(json.dumps({'type':r['arguments']['type'],'probabilities':probs,'usage':r['usage'],'model':r['model'],'provider':r['provider']}),encoding='utf-8')
                 print(json.dumps({'event':'labelled','profile_num':n,'type':r['arguments']['type']}),flush=True)
                 return
             stats['failed']+=1   # left uncached so a later run retries it

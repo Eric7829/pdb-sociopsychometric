@@ -24,7 +24,7 @@ from pdb_ingest.battery import MBTI_TYPES
 from pdb_ingest.encoder_text import encoder_view
 from pdb_ingest.llm import OpenRouter,ToolCallError,load_api_key
 
-MODEL='typesafe/jev-router'
+MODEL='typesafe/jev-1.14'  # not jev-router: that forwards to other models (GLM, Gemini, Grok, ...)
 
 def wilson(k,n,z=1.96):
     if not n: return (float('nan'),)*2
@@ -61,7 +61,7 @@ async def jev_labels(data,out_dir,max_words=30000):
                         async with gate: r=await llm.call_tool(msgs,tool(),temperature=0,seed=1+attempt)
                     except ToolCallError: continue
                     cost[0]+=(r['usage'] or {}).get('cost',0) or 0
-                    f.write_text(json.dumps({'type':r['arguments']['type'],'probabilities':r['arguments']['probabilities'],'usage':r['usage']}),encoding='utf-8')
+                    f.write_text(json.dumps({'type':r['arguments']['type'],'probabilities':r['arguments']['probabilities'],'usage':r['usage'],'model':r['model'],'provider':r['provider']}),encoding='utf-8')
                     break
                 else: return
             probs=json.loads(f.read_text(encoding='utf-8'))['probabilities']; preds[n]=max(probs,key=lambda t:float(probs.get(t,0)))

@@ -50,7 +50,7 @@ class OpenRouter:
             data=response.json()
             if 'error' in data: raise LlmError(f"OpenRouter error: {json.dumps(data['error'])[:300]}")
             choice=data['choices'][0]; message=choice['message']
-            result={'id':data.get('id'),'provider':data.get('provider'),'usage':data.get('usage') or {},
+            result={'id':data.get('id'),'model':data.get('model'),'provider':data.get('provider'),'usage':data.get('usage') or {},
                     'finish_reason':choice.get('finish_reason'),'content':message.get('content'),
                     'reasoning':message.get('reasoning'),'arguments':None}
             calls=[c for c in message.get('tool_calls') or [] if c.get('function',{}).get('name')==name]

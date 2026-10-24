@@ -1,6 +1,6 @@
 """Head-to-head on the crowd's modal 16-type label: an OpenRouter model vs our TF-IDF / e5 letter models (database read-only).
 
-  python tools/compare_llm_classifier.py --db data/pdb-top.duckdb --model typesafe/jev-router --n 25
+  python tools/compare_llm_classifier.py --db data/pdb-top.duckdb --model typesafe/jev-1.14 --n 25
 
 Both sides see the same scrubbed creator text (typology labels removed). Our models' predictions for the test profiles are
 out-of-fold (5-fold CV over every eligible profile), so no test profile is in its own training data. LLM responses are cached
