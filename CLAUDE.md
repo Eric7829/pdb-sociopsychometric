@@ -41,6 +41,10 @@ Data flow: `cli.py` → `browser.py` (Playwright persistent context; `BrowserReq
 
 Stage 3 (`battery.py`, `llm.py`, `formm.py`, `assess` subcommand): a persona prompt over the corpus, then 8 independent forced tool calls through OpenRouter (`llm.OpenRouter`, default model `deepseek/deepseek-v4-flash`; don't use Claude for this stage). Scoring is local. `formm.py` must stay output-identical to `MBTI Form M/scorer.js` (parity test in `tests/test_battery.py`). Changing prompt wording means bumping `battery.PROMPT_VERSION`, because resume logic and analyses group runs by it. The OpenRouter key lives in git-ignored `OPEN_ROUTER_API_KEY.txt`; never print it. Live `assess` calls cost money, so run them only when asked.
 
+Span layer (`text.segment_spans`, `quotes.py`, `context.py`, `annotate.py`, `encoder_text.py`): character spans over `original_text`, stored in `text_spans`, and reply context in `reply_context`, both filled by `pdb_ingest annotate`. Stage 2 (`embed.py`, `distill.py`) reads text only through `encoder_view`. `segment_spans` must keep rebuilding `raw_text` exactly; `annotate` exits 1 on any mismatch. Read capture JSONL with `capture.jsonl_rows` (splits on newline only), never `splitlines()`.
+
+Supplemental samples: `crawl --sample es --type-filter '^ES[TF][JP]' --min-words 200` adds listing-filtered profiles with their own scope and checkpoints; queue rows carry `sample`. The main Top dataset is `data/pdb-top.duckdb` (`sample='top'`: 500 usable; `sample='es'`: 59 assessable ES profiles).
+
 ## Domain rules to preserve
 
 The README's "Stored data" section is the spec; key invariants:

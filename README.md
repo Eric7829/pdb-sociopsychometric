@@ -63,6 +63,18 @@ Text processing is heuristic: question-mark endings and explicit prompt prefixes
 
 `data/` is ignored by Git. It contains authenticated browser state and original personal writings: keep it local unless intentionally sharing a reviewed subset. The capture filter excludes login/verification endpoints and request cookies/authorization; minimal fixtures contain only selected source fields. Data is not automatically deleted.
 
+## Span annotations and encoder input
+
+`pdb_ingest annotate --db D --capture-dir C` works offline from the captures. It tags every stored segment's `original_text` with character spans in `text_spans`, and records in `reply_context` which comment each creator reply answers.
+- **Span kinds:** `PROSE`, `PROMPT`, `ANSWER`, `ANSWER_LABEL` and `QUOTE`.
+- **Quotes:** `>` lines, and runs of 6 or more words shared with an *earlier* comment by another user in the same thread.
+- **Reply context:** the latest earlier comment by the replied-to user. Self-replies and hidden targets get none.
+- **Stored views unchanged:** `raw_text`/`scrubbed_text` are not modified. The command checks that PROSE+ANSWER spans rebuild `raw_text` exactly, and exits 1 on any mismatch.
+
+`encoder_text.encoder_view(store, n, scrub=True, with_context=True, mask_prompts=True)` returns one `(text, pooled_ranges)` per segment, with `[CTX]…[/CTX]`, `[Q]…[/Q]` and `[QUOTE]…[/QUOTE]` markers. Only the creator's own prose and answers are pooled; `mask_prompts=False` is the Stage 2 ablation.
+
+On the Top database: 574 profiles, 31,175 segments, 650 quotes and 11,288 reply contexts (every reply whose target is still visible), with 0 `raw_text` mismatches. Creator words split as 90% prose, 5% prompts, 4% answers and 0.6% quotes.
+
 ## Stage 3: psychometric agent battery
 
 Each complete profile's creator-authored corpus (`raw_text` by default, `--text-view scrubbed` for the jargon-free view) is placed inside `<biographical_corpus>` in a fixed persona-simulation system prompt. The model then answers through forced tool calls: five 24-item IPIP-NEO-120 blocks (1–5), two MBTI Form M blocks (A/B), and one self-typing call (MBTI, Enneagram with wing, first-person rationale). Calls are independent, so no block sees earlier answers, and they share the same prefix. Answers that are invalid or incomplete are retried up to twice. Scoring is local: `IPIP-NEO-120-compact/ipip_neo.py` and `pdb_ingest/formm.py`, a Python port of `MBTI Form M/scorer.js` (a parity test runs when Node is installed).
