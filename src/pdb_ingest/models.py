@@ -8,6 +8,7 @@ class MissingEvidence(SchemaError): pass
 class PaginationError(RuntimeError): pass
 class AccessBlocked(RuntimeError): pass
 class ProfileUnavailable(RuntimeError): pass  # profile-specific (deactivated, friends-only); the session is fine
+class ProfileOutOfScope(ProfileUnavailable): pass  # e.g. created before --created-after; skipped and replaced like unavailable
 
 PROFILE_PATHS=('/api/v1/profile/','/api/v1/comments/','/api/v1/comment_replies')
 
@@ -40,6 +41,7 @@ class Profile:
     header_summary: str | None = None
     bio_quote: str | None = None
     total_votes_all: int | None = None
+    created: str | None = None  # contributor_create_date, e.g. '2026-09-28 16:49:43'
 
 @dataclass
 class SelfVote:

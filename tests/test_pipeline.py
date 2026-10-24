@@ -160,3 +160,27 @@ async def test_type_filtered_supplement_counts_assessable_profiles(tmp_path):
         assert store.load_checkpoint('scope')==('500',True) and store.load_checkpoint('scope:es')==('2',True)
         with pytest.raises(ValueError,match='max_profiles'):
             await run_crawl(Typed(),store,Docs(),None,max_profiles=3,sample='es',type_filter=r'^ES[TF][JP]\b',min_words=10)
+
+def test_parse_profile_keeps_creation_date():
+    from pdb_ingest.adapters import parse_profile
+    p=parse_profile({'id':5,'mbti_profile':'x','contributor_create_date':'2026-09-28 16:49:43'})
+    assert p.created=='2026-09-28 16:49:43'
+
+async def test_created_after_and_require_eligible_scope_the_sample(tmp_path):
+    created={1:'2026-08-01 10:00:00',2:'2026-09-20 10:00:00',3:'2026-09-21 10:00:00',4:'2026-09-22 10:00:00'}
+    votes={1:30,2:30,3:5,4:30}
+    class Recent(Client):
+        calls=[]
+        async def listing(self,token):
+            offset=int(token or 0); self.calls.append(offset)
+            return Page([ProfileRef(n,'u') for n in (offset+1,offset+2) if n in created],str(offset+2),offset+2>=4)
+        async def detail(self,n):
+            c=await super().detail(n); c.payload['contributor_create_date']=created[n]; return c
+        async def tallies(self,n): return {'MBTI':{'INFP':votes[n]}}
+    with Store(tmp_path/'recent.duckdb') as store:
+        stats=await run_crawl(Recent(),store,Docs(),None,max_profiles=2,created_after='2026-09-15',require_eligible=('MBTI',))
+        q=store.connection.execute
+        assert q('select profile_num from crawl_queue where unavailable').fetchall()==[(1,)]
+        assert stats['usable']==2 and stats['scope_complete']
+        assert sorted(r[0] for r in q('select profile_num from crawl_queue where complete').fetchall())==[2,3,4]
+        assert 'created before 2026-09-15' in store.load_snapshot(1).issues[0]

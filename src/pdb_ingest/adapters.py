@@ -13,7 +13,8 @@ def parse_profile(payload):
         name=payload['mbti_profile']
         slug=re.sub(r'[^\w]+','-',name.lower()).strip('-') or str(payload['id'])
         return Profile(int(payload['id']),slug,str(payload['user_id']) if payload.get('user_id') not in (None,0,-1) else None,
-                       payload.get('contributor'),payload.get('personality_type'),payload.get('wiki_description'),payload.get('total_vote_counts'))
+                       payload.get('contributor'),payload.get('personality_type'),payload.get('wiki_description'),payload.get('total_vote_counts'),
+                       payload.get('contributor_create_date'))
     except (KeyError,TypeError,ValueError) as e:
         raise SchemaError('Unrecognized profile response') from e
 

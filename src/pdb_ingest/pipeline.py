@@ -13,7 +13,7 @@ from .capture import Capture,jsonl_rows
 from .client import PdbClient
 from .crawl import collect_comments,match_creator
 from .gdocs import extract_documents,fetch_document
-from .models import (Profile,Snapshot,CreatorMatch,Document,AccessBlocked,PaginationError,SchemaError,MissingEvidence,
+from .models import (Profile,Snapshot,CreatorMatch,Document,AccessBlocked,PaginationError,SchemaError,MissingEvidence,ProfileOutOfScope,
                      ProfileUnavailable,profile_refusal)
 from .text import make_segment,ramble_ratio
 from .votes import build_distributions
@@ -35,9 +35,11 @@ class DocumentSource:
             out.write(json.dumps({'profile_num':profile_num,'attempt':self.attempt,'document':asdict(doc)},ensure_ascii=False)+'\n')
         return doc
 
-async def ingest_profile(client,profile_num,docs_client,max_comments=None):
+async def ingest_profile(client,profile_num,docs_client,max_comments=None,created_after=None):
     detail=await client.detail(profile_num)
     profile=parse_profile(detail)
+    if created_after and (profile.created or '')[:10]<created_after:
+        raise ProfileOutOfScope(f'created before {created_after} ({profile.created})')
     comments,truncated=await collect_comments(client,profile_num,max_comments)
     creator=match_creator(profile,comments)
     authored=sorted(creator.comments,key=lambda c:(not c.is_pinned,c.comment_id))
@@ -62,12 +64,12 @@ def failed_snapshot(profile_num,error):
     return Snapshot(Profile(profile_num,str(profile_num)),[],[],[],CreatorMatch([],'NONE','UNKNOWN'),None,False,
                     [f'{type(error).__name__}: {error}'],datetime.now(timezone.utc).isoformat())
 
-async def process_profile(client,store,docs_client,profile_num,max_comments=None):
+async def process_profile(client,store,docs_client,profile_num,max_comments=None,created_after=None):
     # Tag every recorded response so replay can reconstruct exactly one attempt.
     targets=[t for t in (getattr(client,'transport',None),docs_client) if t is not None]
     for t in targets: t.attempt=f'{profile_num}:{uuid.uuid4().hex}'
     try:
-        snapshot=await ingest_profile(client,profile_num,docs_client,max_comments)
+        snapshot=await ingest_profile(client,profile_num,docs_client,max_comments,created_after)
     except Exception as error:
         store.save_snapshot(failed_snapshot(profile_num,error))
         if isinstance(error,(AccessBlocked,SchemaError,PaginationError,ProfileUnavailable)): raise
@@ -77,7 +79,8 @@ async def process_profile(client,store,docs_client,profile_num,max_comments=None
     store.save_snapshot(snapshot)
     return snapshot.complete
 
-async def run_crawl(client,store,docs_client,limit,*,max_profiles=500,max_comments=None,sample='top',type_filter=None,min_words=None):
+async def run_crawl(client,store,docs_client,limit,*,max_profiles=500,max_comments=None,sample='top',type_filter=None,min_words=None,
+                    created_after=None,require_eligible=()):
     """Crawl the listing in order. sample/type_filter/min_words define a supplemental sample (e.g. 'es': ES[TF][JP] profiles with
     >=200 corpus words) with its own scope, checkpoints and queue tag; the default 'top' sample counts usable profiles."""
     if limit is not None and limit<=0: raise ValueError('limit must be positive')
@@ -85,7 +88,8 @@ async def run_crawl(client,store,docs_client,limit,*,max_profiles=500,max_commen
     key=lambda k:k if sample=='top' else f'{k}:{sample}'
     pattern=re.compile(type_filter) if type_filter else None
     for name,value in ((key('scope'),str(max_profiles)),('comment_scope',str(max_comments or 'all')),
-                       ('listing_sort',getattr(client,'sort',None) or 'hot'),(key('type_filter'),type_filter or 'all'),(key('min_words'),str(min_words or 0))):
+                       ('listing_sort',getattr(client,'sort',None) or 'hot'),(key('type_filter'),type_filter or 'all'),(key('min_words'),str(min_words or 0)),
+                       (key('created_after'),created_after or 'any'),(key('require_eligible'),','.join(require_eligible) or 'none')):
         old,_=store.load_checkpoint(name)
         if old is not None and old!=value:
             label={'comment_scope':'max_comments','listing_sort':'listing sort'}.get(name,name.split(':')[0].replace('scope','max_profiles'))
@@ -95,12 +99,16 @@ async def run_crawl(client,store,docs_client,limit,*,max_profiles=500,max_commen
     def usable():
         # Unavailable profiles (friends-only, deactivated) never count; with min_words only assessable or still-pending ones do.
         q=store.connection.execute
-        if min_words is None: return q('SELECT count(*) FROM crawl_queue WHERE NOT unavailable AND sample=?',[sample]).fetchone()[0]
+        if min_words is None and not require_eligible: return q('SELECT count(*) FROM crawl_queue WHERE NOT unavailable AND sample=?',[sample]).fetchone()[0]
         from .battery import corpus_text
         from .text import words
         done=[r[0] for r in q('SELECT profile_num FROM crawl_queue WHERE complete AND sample=?',[sample]).fetchall()]
         pending=q('SELECT count(*) FROM crawl_queue WHERE NOT complete AND NOT unavailable AND sample=?',[sample]).fetchone()[0]
-        return pending+sum(words(corpus_text(store.load_snapshot(n).segments))>=min_words for n in done)
+        def counts(n):
+            if min_words and words(corpus_text(store.load_snapshot(n).segments))<min_words: return False
+            eligible={r[0] for r in q('SELECT system_name FROM vote_distributions WHERE profile_num=? AND training_eligible',[n]).fetchall()}
+            return all(s in eligible for s in require_eligible)
+        return pending+sum(counts(n) for n in done)
     while True:
         for ref in store.pending():
             if ref.profile_num in attempted: continue
@@ -108,7 +116,7 @@ async def run_crawl(client,store,docs_client,limit,*,max_profiles=500,max_commen
             attempted.add(ref.profile_num)
             print(json.dumps({'event':'profile','profile_num':ref.profile_num,'processed':len(attempted)}),flush=True)
             try:
-                if await process_profile(client,store,docs_client,ref.profile_num,max_comments): succeeded+=1
+                if await process_profile(client,store,docs_client,ref.profile_num,max_comments,created_after): succeeded+=1
                 else: failed+=1
             except ProfileUnavailable:
                 store.mark_unavailable(ref.profile_num); unavailable+=1
