@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "verified_on": "2026-10-23",
+  "base_url": "https://api.personality-database.com",
+  "listing": {"path": "/api/v1/profiles", "items": "profiles", "pagination": "offset_limit_short_page"},
+  "detail": {"path": "/api/v1/profile/{id}", "creator_id": "user_id", "creator_username": "contributor", "votes": "breakdown_systems"},
+  "comments": {"path": "/api/v1/comments/{id}", "items": "comments", "more": "has_more", "next": "next_offset"},
+  "replies": {"path": "/api/v1/comment_replies", "parent_parameter": "comment_id", "items": "comments", "more": "has_more", "next": "next_offset"}
+}
