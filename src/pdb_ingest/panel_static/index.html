@@ -68,8 +68,10 @@ td,th{border-bottom:1px solid var(--grid);padding:3px 8px;text-align:right;white
     <div id="warn"></div>
     <div class="grid" style="margin-top:16px">
       <div class="card"><h3>Big Five (percentile)</h3><p class="note">Bar = estimate; band = ±1 cross-validated error. r = how well this predictor tracked the agent's IPIP scores in cross-validation.</p><div id="r-big5"></div></div>
-      <div class="card"><h3>MBTI letters</h3><div class="hero" id="r-type"></div><p class="note">How a crowd of PDB voters would most likely lean. Balanced accuracy in cross-validation (chance = 50%) is shown per row.</p><div id="r-mbti"></div></div>
-      <div class="card"><h3>Enneagram core</h3><p class="note" id="r-ennea-note"></p><div id="r-ennea"></div></div>
+      <div class="card"><h3>MBTI: crowd vote</h3><div class="hero" id="r-type"></div><p class="note">How PDB voters would most likely type this text. Cross-validated balanced accuracy (chance = 50%) per row.</p><div id="r-mbti"></div></div>
+      <div class="card"><h3>MBTI: agent (Form M)</h3><div class="hero" id="r-agent-type"></div><p class="note">The type the LLM agent would score on MBTI Form M after reading this text. Cross-validated balanced accuracy per row.</p><div id="r-agent-mbti"></div></div>
+      <div class="card"><h3>Enneagram: crowd vote</h3><p class="note" id="r-ennea-note"></p><div id="r-ennea"></div></div>
+      <div class="card"><h3>Enneagram: agent self-typing</h3><p class="note" id="r-agent-ennea-note"></p><div id="r-agent-ennea"></div></div>
     </div>
   </div>
 
@@ -191,6 +193,11 @@ function enneaBars(id,e){
     text(c,L+i*gw+gw/2,H-5,{'text-anchor':'middle',class:i===top?'ink':''},s);
     hover(el('rect',{x:L+i*gw,y:T,width:gw,height:ph,class:'hit'},s),`<b>Core ${c}</b><br>${(e.probabilities[i]*100).toFixed(0)}%`)});
 }
+function enneaCard(id,e,who){
+  if(e.unavailable){$(id+'-note').textContent='Not available: '+e.unavailable+'.';$(id).innerHTML='';return}
+  const top=e.cores[e.probabilities.indexOf(Math.max(...e.probabilities))],lift=e.cv.top1-e.cv.chance;
+  $(id+'-note').textContent=`Most likely core ${top} for ${who}. Cross-validated top-1 accuracy ${Math.round(e.cv.top1*100)}% vs ${Math.round(e.cv.chance*100)}% for always guessing the commonest core`+(lift<.1?', so this is weak.':'.');
+  enneaBars(id,e)}
 async function assess(){
   const t=$('text').value;if(!t.trim())return;
   $('go').disabled=true;$('status').textContent='Scoring…';
@@ -200,8 +207,8 @@ async function assess(){
     $('warn').innerHTML=r.short_text?`<div class="warn">Only ${r.words} words after removing typology labels. The models were trained on profiles with hundreds to thousands of words, so treat short-text results as rough.</div>`:'';
     rangeRows('r-big5',Object.values(r.big5));
     $('r-type').textContent=r.mbti;letterRows('r-mbti',r.mbti_letters);
-    $('r-ennea-note').textContent=`Most likely core ${r.enneagram.cores[r.enneagram.probabilities.indexOf(Math.max(...r.enneagram.probabilities))]}. Cross-validated top-1 accuracy ${Math.round(r.enneagram.cv.top1*100)}% vs ${Math.round(r.enneagram.cv.chance*100)}% for always guessing the commonest core, so this is weak.`;
-    enneaBars('r-ennea',r.enneagram);
+    $('r-agent-type').textContent=r.agent_mbti;letterRows('r-agent-mbti',r.agent_mbti_letters);
+    enneaCard('r-ennea',r.enneagram,'voters');enneaCard('r-agent-ennea',r.agent_enneagram,'the agent');
   }catch(e){$('status').textContent='Request failed: '+e.message}
   finally{$('go').disabled=false}
 }

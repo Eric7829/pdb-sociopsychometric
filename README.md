@@ -88,7 +88,7 @@ A local web page that only listens on 127.0.0.1. It opens the database read-only
 - Big Five intercorrelations
 - the MBTI × Enneagram bundling heatmap
 
-The **assessor** scores a typed self-description with typology labels scrubbed. It averages TF-IDF and `multilingual-e5-small` models trained at startup on the Top sample. It reports Big Five percentiles with ±1 cross-validated error bands, MBTI letter probabilities and Enneagram core probabilities, each with its cross-validated accuracy. Assessed text is never stored or logged.
+The **assessor** scores a typed self-description with typology labels scrubbed. It averages TF-IDF and `multilingual-e5-small` models trained at startup on the Top sample. It reports Big Five percentiles with ±1 cross-validated error bands, and MBTI letter and Enneagram core probabilities twice: as PDB voters would type the text, and as the LLM agent would (its Form M result and its self-typed core). Each comes with its cross-validated accuracy. Assessed text is never stored or logged.
 
 Predictions mimic the *agent's* reading. That reading is skewed in this sample (high O and N, low C, E and A), so new texts are pulled toward that profile. First start embeds any uncached profiles; after that, startup takes seconds.
 

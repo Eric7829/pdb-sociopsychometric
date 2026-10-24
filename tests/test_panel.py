@@ -67,3 +67,14 @@ async def test_http_endpoints(tmp_path):
         with pytest.raises(urllib.error.HTTPError) as e: urllib.request.urlopen(bad)
         assert e.value.code==400
     finally: server.shutdown()
+
+async def test_assessor_predicts_agent_types(tmp_path):
+    pytest.importorskip('sklearn')
+    store=await build(tmp_path)
+    with store: a=panel.Assessor(store,None,embed_fn=fake_embed,folds=4)
+    r=a.assess('quiet engine tools fix alone')
+    letters=r['agent_mbti_letters']
+    assert letters and all(0<=v['p_first']<=1 and 'balanced_accuracy' in v['cv'] for v in letters.values())
+    assert len(r['agent_mbti'])==4
+    # The fake agent always self-types 4w5: a single class cannot be learned and is reported, not crashed on.
+    assert r['agent_enneagram']=={'unavailable':'only one class in training data (4)'}

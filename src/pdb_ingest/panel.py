@@ -91,24 +91,34 @@ class Assessor:
             pred=(cross_val_predict(mt,D,y,cv=cv)+cross_val_predict(me,E,y,cv=cv))/2
             self.ipip_cv[k]={'spearman':spearman(list(pred),list(y)),'rmse':float(np.sqrt(np.mean((pred-y)**2))),'n':len(y)}
             self.ipip[k]=(mt.fit(D,y),me.fit(E,y),norms[k])
-        cls_ids=[n for n in ids if 'mbti_counts' in rows[n]]; D,E=data(cls_ids)
-        self.letters={}; self.letters_cv={}
-        for i,(a,b) in enumerate(LETTERS):
-            y=np.array([modal(rows[n]['mbti_counts'])[i]==a for n in cls_ids])
-            mt=make_pipeline(tfidf(),LogisticRegression(C=4,max_iter=3000,class_weight='balanced'))
-            me=make_pipeline(StandardScaler(),LogisticRegression(C=1,max_iter=3000,class_weight='balanced'))
-            p=(cross_val_predict(mt,D,y,cv=cv,method='predict_proba')[:,1]+cross_val_predict(me,E,y,cv=cv,method='predict_proba')[:,1])/2
-            self.letters_cv[a+b]={'balanced_accuracy':float(np.mean([np.mean((p>=.5)[y==v]==v) for v in (True,False)])),'n':len(y)}
-            self.letters[a+b]=(mt.fit(D,y),me.fit(E,y))
-        en_ids=[n for n in ids if 'ennea_counts' in rows[n]]; D,E=data(en_ids)
-        y=np.array([modal(rows[n]['ennea_counts'])[0] for n in en_ids]); counts=Counter(y)
-        mt=make_pipeline(tfidf(),LogisticRegression(C=4,max_iter=3000)); me=make_pipeline(StandardScaler(),LogisticRegression(C=.5,max_iter=3000))
-        scv=StratifiedKFold(min(folds,min(counts.values())) if min(counts.values())>1 else 2,shuffle=True,random_state=0)
-        p=(cross_val_predict(mt,D,y,cv=scv,method='predict_proba')+cross_val_predict(me,E,y,cv=scv,method='predict_proba'))/2
-        self.cores=sorted(counts)
-        self.ennea_cv={'top1':float(np.mean(np.array(self.cores)[p.argmax(1)]==y)),'chance':max(counts.values())/len(y),'n':len(y)}
-        self.ennea=(mt.fit(D,y),me.fit(E,y))
-        self.trained_on={'regression':len(reg_ids),'letters':len(cls_ids),'enneagram':len(en_ids)}
+        def fit_letters(label):
+            """Per-letter binary heads for an MBTI label function; letters with one class in the data are left out."""
+            sub=[n for n in ids if label(rows[n])]; D,E=data(sub); heads={}
+            for i,(a,b) in enumerate(LETTERS):
+                y=np.array([label(rows[n])[i]==a for n in sub])
+                if len(set(y))<2 or min(y.sum(),(~y).sum())<folds: continue
+                mt=make_pipeline(tfidf(),LogisticRegression(C=4,max_iter=3000,class_weight='balanced'))
+                me=make_pipeline(StandardScaler(),LogisticRegression(C=1,max_iter=3000,class_weight='balanced'))
+                p=(cross_val_predict(mt,D,y,cv=cv,method='predict_proba')[:,1]+cross_val_predict(me,E,y,cv=cv,method='predict_proba')[:,1])/2
+                heads[a+b]=(mt.fit(D,y),me.fit(E,y),{'balanced_accuracy':float(np.mean([np.mean((p>=.5)[y==v]==v) for v in (True,False)])),'n':len(y)})
+            return heads,len(sub)
+        def fit_cores(label):
+            """Multiclass Enneagram-core head; (None, n, reason) when the data cannot support it."""
+            sub=[n for n in ids if label(rows[n])]; D,E=data(sub); y=np.array([label(rows[n])[0] for n in sub]); counts=Counter(y)
+            if len(counts)<2: return None,len(sub),f'only one class in training data ({next(iter(counts),"none")})'
+            mt=make_pipeline(tfidf(),LogisticRegression(C=4,max_iter=3000)); me=make_pipeline(StandardScaler(),LogisticRegression(C=.5,max_iter=3000))
+            scv=StratifiedKFold(max(2,min(folds,min(counts.values()))),shuffle=True,random_state=0)
+            p=(cross_val_predict(mt,D,y,cv=scv,method='predict_proba')+cross_val_predict(me,E,y,cv=scv,method='predict_proba'))/2
+            cores=sorted(counts)
+            cv_=({'top1':float(np.mean(np.array(cores)[p.argmax(1)]==y)),'chance':max(counts.values())/len(y),'n':len(y)})
+            return (mt.fit(D,y),me.fit(E,y),cores,cv_),len(sub),None
+        crowd_type=lambda r:modal(r['mbti_counts']) if 'mbti_counts' in r else None
+        crowd_core=lambda r:modal(r['ennea_counts']) if 'ennea_counts' in r else None
+        self.letters,n_letters=fit_letters(crowd_type)
+        self.ennea,n_ennea,self.ennea_reason=fit_cores(crowd_core)
+        self.agent_letters,n_agent_letters=fit_letters(lambda r:r.get('form_m'))
+        self.agent_ennea,n_agent_ennea,self.agent_ennea_reason=fit_cores(lambda r:r.get('agent_ennea'))
+        self.trained_on={'regression':len(reg_ids),'letters':n_letters,'enneagram':n_ennea,'agent_letters':n_agent_letters,'agent_enneagram':n_agent_ennea}
 
     def embed(self,views):
         from . import embed
@@ -124,13 +134,17 @@ class Assessor:
             raw=float((mt.predict(D)[0]+me.predict(E)[0])/2); rmse=self.ipip_cv[k]['rmse']
             big5[k]={'name':DOMAIN_NAMES[k],'raw':raw,'percentile':percentile(raw,norm),'low':percentile(raw-rmse,norm),
                      'high':percentile(raw+rmse,norm),'cv':self.ipip_cv[k]}
-        letters={pair:{'p_first':float((mt.predict_proba(D)[0,1]+me.predict_proba(E)[0,1])/2),'cv':self.letters_cv[pair]}
-                 for pair,(mt,me) in self.letters.items()}
-        mt,me=self.ennea; probs=(mt.predict_proba(D)[0]+me.predict_proba(E)[0])/2
-        return {'words':n_words,'short_text':n_words<150,'big5':big5,'mbti_letters':letters,
-                'mbti':''.join(p[0] if v['p_first']>=.5 else p[1] for p,v in letters.items()),
-                'enneagram':{'cores':self.cores,'probabilities':[float(x) for x in probs],'cv':self.ennea_cv},
-                'trained_on':self.trained_on}
+        def letters(heads):
+            out={pair:{'p_first':float((mt.predict_proba(D)[0,1]+me.predict_proba(E)[0,1])/2),'cv':cv_} for pair,(mt,me,cv_) in heads.items()}
+            return out,''.join((out[a+b]['p_first']>=.5 and a or b) if a+b in out else 'X' for a,b in LETTERS)
+        def cores(head,reason):
+            if head is None: return {'unavailable':reason}
+            mt,me,names,cv_=head; probs=(mt.predict_proba(D)[0]+me.predict_proba(E)[0])/2
+            return {'cores':names,'probabilities':[float(x) for x in probs],'cv':cv_}
+        crowd_letters,crowd_type=letters(self.letters); agent_letters,agent_type=letters(self.agent_letters)
+        return {'words':n_words,'short_text':n_words<150,'big5':big5,'mbti_letters':crowd_letters,'mbti':crowd_type,
+                'enneagram':cores(self.ennea,self.ennea_reason),'agent_mbti_letters':agent_letters,'agent_mbti':agent_type,
+                'agent_enneagram':cores(self.agent_ennea,self.agent_ennea_reason),'trained_on':self.trained_on}
 
 def percentile(raw,norm):
     counts,minimum=norm['counts'],norm['minimum']
