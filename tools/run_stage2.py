@@ -18,9 +18,10 @@ def readonly_store(path):
 def main():
     p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--db',type=Path,required=True); p.add_argument('--out',type=Path,default=Path('data/stage2'))
+    p.add_argument('--model',default=embed.DEFAULT_MODEL,help='Hugging Face encoder (e.g. jinaai/jina-embeddings-v5-text-small-classification)')
     p.add_argument('views',nargs='+',choices=sorted(distill.VIEWS))
     args=p.parse_args()
-    store=readonly_store(args.db); encoder=embed.hf_encoder()
+    store=readonly_store(args.db); encoder=embed.hf_encoder(args.model)
     for view in args.views:
         report=distill.run_distill(store,view,encoder=encoder,out_root=args.out)
         print(json.dumps({'view':view,'embedded':report['embedded'],'metrics':report['metrics']}),flush=True)

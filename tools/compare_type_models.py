@@ -50,9 +50,10 @@ def main():
     p.add_argument('--target',choices=('crowd','agent'),default='crowd',help="crowd's modal type, or the agent's MBTI Form M result (stage3-v1)")
     p.add_argument('--both-only',action='store_true',help='Restrict to profiles that have both a crowd type and an agent result')
     p.add_argument('--output',type=Path,default=None)
+    p.add_argument('--encoder',default='intfloat--multilingual-e5-small',help='Cached encoder folder under data/stage2/emb')
     args=p.parse_args()
     store=readonly_store(args.db); rows=panel.load_rows(store.connection)
-    cache=Path('data/stage2/emb/intfloat--multilingual-e5-small/main'); docs={}; vecs={}
+    cache=Path('data/stage2/emb')/args.encoder/'main'; docs={}; vecs={}
     for n,r in rows.items():
         if args.both_only and not ('mbti_counts' in r and r.get('form_m')): continue
         if (args.target=='crowd' and 'mbti_counts' not in r) or (args.target=='agent' and not r.get('form_m')): continue
@@ -86,7 +87,7 @@ def main():
     blends={w:evaluate(pool(oof['letters'],oof['type'],w),y) for w in grid}
     best=min(grid,key=lambda w:blends[w]['log_loss']); res['blend']={'w_letters':best,**blends[best]}
     res['blend_grid']={str(w):{k:round(v,3) for k,v in blends[w].items()} for w in grid}
-    (args.output or Path(f'data/stage2/type_models_{args.target}{"_both" if args.both_only else ""}.json')).write_text(json.dumps(res,indent=1),encoding='utf-8')
+    (args.output or Path(f'data/stage2/type_models_{args.target}{"_both" if args.both_only else ""}_{args.encoder}.json')).write_text(json.dumps(res,indent=1),encoding='utf-8')
     print(json.dumps({k:v for k,v in res.items() if k not in ('blend_grid','type_counts')},indent=1))
 
 if __name__=='__main__': main()
