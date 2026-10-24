@@ -12,3 +12,20 @@ def test_offsets_survive_emoji():
 def test_spans_match_raw_text():
     t='intro words\n\nQUESTIONNAIRE:\n\nQ1: Why? Answer'
     assert '\n\n'.join(t[s.start:s.end] for s in segment_spans(t) if s.kind in ('PROSE','ANSWER'))==make_segment('X','x',t).raw_text
+
+from pdb_ingest.quotes import quote_ranges,merge_quotes
+def test_gt_lines_are_quotes():
+    t='> are you sure you are an introvert\nYes, very sure.'
+    assert [t[a:b] for a,b in quote_ranges(t,[])]==['> are you sure you are an introvert']
+def test_shared_six_word_run_is_quote():
+    other='I think you are clearly a sensor because you love details'
+    t='You said "you are clearly a sensor because you love" but no.'
+    (a,b),=quote_ranges(t,[other])
+    assert 'you are clearly a sensor because' in t[a:b] and 'but no' not in t[a:b]
+def test_five_shared_words_are_not_a_quote():
+    assert quote_ranges('we both love long walks today',['i love long walks today too'])==[]
+def test_quote_inside_answer_splits_span():
+    t='Q1: Why? Because "you are clearly a sensor because you love details" is wrong.\n\nQ2: Ok? Yes.\n\nQ3: No? No.'
+    spans=merge_quotes(segment_spans(t),quote_ranges(t,['you are clearly a sensor because you love details']))
+    assert [s.kind for s in spans if s.start>=t.index('Because')][:3]==['ANSWER','QUOTE','ANSWER']
+    assert all(x.end<=y.start for x,y in zip(spans,spans[1:]))
