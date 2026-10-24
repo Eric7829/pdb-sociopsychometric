@@ -20,7 +20,7 @@ pdb-ingest = "pdb_ingest.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-pdb_ingest = ["*.json", "*.sql"]
+pdb_ingest = ["*.json", "*.sql", "panel_static/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

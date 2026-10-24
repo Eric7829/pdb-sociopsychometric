@@ -33,6 +33,9 @@ def main(argv=None):
         sub.add_argument('--capture-dir',type=Path,default=Path('data/run'))
         sub.add_argument('--max-comments',type=int,help='Fetch reply threads only for the first N top-level comments (pinned first); default: all')
         sub.add_argument('--headless',action='store_true')
+    pan=subs.add_parser('panel',help='Local web panel: dataset charts + self-description assessor (127.0.0.1 only)')
+    pan.add_argument('--port',type=int,default=8765)
+    pan.add_argument('--samples',nargs='+',default=['top'])
     aud=subs.add_parser('audit',help='Phase 5 audits (bundling, modality, inventory) to JSON')
     aud.add_argument('--output',type=Path,default=Path('data/audits/report.json'))
     aud.add_argument('--samples',nargs='+',default=['top'],help="crawl_queue sample tags to include (default: top)")
@@ -77,6 +80,14 @@ def main(argv=None):
         if args.command=='capture':
             rows=asyncio.run(capture_session(args.url,args.output,args.session,seconds=args.seconds))
             print(json.dumps({'captures':len(rows)})); return 0 if rows else 1
+        if args.command=='panel':
+            import duckdb
+            from . import embed,panel
+            store=Store.__new__(Store); store.connection=duckdb.connect(str(args.db),read_only=True)
+            samples=tuple(args.samples); summary=panel.build_summary(store.connection,samples)
+            encoder=embed.hf_encoder()
+            assessor=panel.Assessor(store,encoder,samples=samples,cache_dir=Path('data/stage2/emb')/embed.model_slug(encoder[2]['model'])/'main')
+            panel.serve(summary,assessor,port=args.port); return 0
         with Store(args.db) as store:
             if args.command=='export':
                 print(json.dumps({'exported':store.export_jsonl(args.output)})); return 0

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "panel",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "pdb_ingest", "panel", "--db", "data/pdb-top.duckdb", "--port", "8765"],
+      "port": 8765
+    }
+  ]
+}

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Personality Panel</title>
+<style>
+:root{color-scheme:light;
+  --page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#8a8984;--line:#e4e3de;--grid:#eeede8;
+  --s1:#2a78d6;--s1-soft:#cde2fb;--s2:#eb6834;--neg:#e34948;--mid:#f0efec;--warn-bg:#fff4dc;--warn-ink:#7a4f00}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){color-scheme:dark;
+  --page:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--muted:#8f8e86;--line:#33332f;--grid:#262624;
+  --s1:#3987e5;--s1-soft:#1c3556;--s2:#d95926;--neg:#e66767;--mid:#383835;--warn-bg:#3a2c0c;--warn-ink:#f5cf7a}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --page:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--muted:#8f8e86;--line:#33332f;--grid:#262624;
+  --s1:#3987e5;--s1-soft:#1c3556;--s2:#d95926;--neg:#e66767;--mid:#383835;--warn-bg:#3a2c0c;--warn-ink:#f5cf7a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1120px;margin:0 auto;padding:24px 16px 64px}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+h1{font-size:24px;margin:0;letter-spacing:-.01em}
+h2{font-size:18px;margin:32px 0 4px}
+h3{font-size:15px;margin:0 0 2px}
+.sub{color:var(--ink2);margin:0 0 16px;max-width:760px}
+.muted{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,500px),1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 16px 12px;min-width:0}
+.card p.note{margin:2px 0 10px;color:var(--ink2);font-size:13px}
+textarea{width:100%;min-height:150px;resize:vertical;padding:12px;border-radius:10px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);font:inherit}
+textarea:focus-visible,button:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px}
+button{background:var(--s1);color:#fff;border:0;border-radius:8px;padding:9px 18px;font:600 14px system-ui;cursor:pointer}
+button:disabled{opacity:.55;cursor:progress}
+button.ghost{background:transparent;color:var(--ink2);border:1px solid var(--line);font-weight:500}
+.warn{background:var(--warn-bg);color:var(--warn-ink);border-radius:8px;padding:8px 12px;font-size:13px;margin:8px 0}
+.hero{font-size:40px;font-weight:700;letter-spacing:.04em;line-height:1}
+svg{display:block;width:100%;max-width:620px;height:auto;overflow:visible;margin:0 auto}
+svg text{fill:var(--ink2);font:12px system-ui}
+svg .ink{fill:var(--ink)} svg .mut{fill:var(--muted)}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--ink2);margin:4px 0 6px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+details{margin-top:6px} summary{cursor:pointer;color:var(--ink2);font-size:13px}
+table{border-collapse:collapse;font-size:12px;margin-top:6px;display:block;overflow-x:auto;max-width:100%}
+td,th{border-bottom:1px solid var(--grid);padding:3px 8px;text-align:right;white-space:nowrap} th:first-child,td:first-child{text-align:left}
+#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--surface);font-size:12px;padding:6px 9px;border-radius:6px;
+  opacity:0;transition:opacity .08s;z-index:9;max-width:260px}
+.hit{fill:transparent;cursor:default}
+#result{display:none}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Personality Panel</h1>
+    <button class="ghost" id="theme" type="button" aria-label="Toggle light or dark theme">Theme</button>
+  </header>
+  <p class="sub" id="intro">Loading dataset…</p>
+
+  <h2>Assess a self-description</h2>
+  <p class="sub">Your text is scored locally (TF-IDF and multilingual-e5-small, averaged) and never stored. Typology labels such as “INFP” or “4w5” are removed first, so only how you describe yourself counts.</p>
+  <div class="card">
+    <label for="text" class="muted">Write about yourself: habits, relationships, how you feel and decide. 150+ words works best.</label>
+    <textarea id="text" placeholder="I usually spend my evenings…"></textarea>
+    <div class="row"><button id="go" type="button">Assess</button><span class="muted" id="count">0 words</span><span class="muted" id="status"></span></div>
+  </div>
+  <div id="result">
+    <div id="warn"></div>
+    <div class="grid" style="margin-top:16px">
+      <div class="card"><h3>Big Five (percentile)</h3><p class="note">Bar = estimate; band = ±1 cross-validated error. r = how well this predictor tracked the agent's IPIP scores in cross-validation.</p><div id="r-big5"></div></div>
+      <div class="card"><h3>MBTI letters</h3><div class="hero" id="r-type"></div><p class="note">How a crowd of PDB voters would most likely lean. Balanced accuracy in cross-validation (chance = 50%) is shown per row.</p><div id="r-mbti"></div></div>
+      <div class="card"><h3>Enneagram core</h3><p class="note" id="r-ennea-note"></p><div id="r-ennea"></div></div>
+    </div>
+  </div>
+
+  <h2>Dataset</h2>
+  <p class="sub">Crowd = the modal type in each profile's vote distribution (≥10 votes). Agent = an LLM reading the creator's own writing and completing IPIP-NEO-120 and MBTI Form M. These are agent readings, not self-reports.</p>
+  <div class="grid">
+    <div class="card"><h3>MBTI types</h3><div class="legend"><span><i style="background:var(--s1)"></i>Crowd modal type</span><span><i style="background:var(--s2)"></i>Agent Form M result</span></div><div id="c-mbti"></div><details><summary>Table</summary><div id="t-mbti"></div></details></div>
+    <div class="card"><h3>Enneagram core</h3><div class="legend"><span><i style="background:var(--s1)"></i>Crowd modal core</span><span><i style="background:var(--s2)"></i>Agent self-typing</span></div><div id="c-ennea"></div><details><summary>Table</summary><div id="t-ennea"></div></details></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>Big Five distributions (agent IPIP percentiles)</h3><p class="note" id="n-big5"></p><div id="c-big5" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div><details><summary>Table</summary><div id="t-big5"></div></details></div>
+  <div class="grid" style="margin-top:16px">
+    <div class="card"><h3>Crowd votes vs agent Big Five</h3><p class="note" id="n-letters"></p><div id="c-letters"></div><details><summary>Table</summary><div id="t-letters"></div></details></div>
+    <div class="card"><h3>Big Five intercorrelations</h3><p class="note" id="n-b5corr"></p><div id="c-b5corr"></div><details><summary>Table</summary><div id="t-b5corr"></div></details></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>MBTI × Enneagram core (crowd modal types)</h3><p class="note">Share of each MBTI type's profiles by Enneagram core: concentrated rows indicate bundled archetypes. Hover for counts.</p><div id="c-cross"></div><details><summary>Table</summary><div id="t-cross"></div></details></div>
+</main>
+<div id="tip" role="tooltip"></div>
+<script>
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg';
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const tip=$('tip');
+function showTip(e,html){tip.innerHTML=html;tip.style.opacity=1;const x=Math.min(e.clientX+14,innerWidth-tip.offsetWidth-8);tip.style.left=x+'px';tip.style.top=(e.clientY+14)+'px'}
+function hideTip(){tip.style.opacity=0}
+function el(tag,attrs={},parent){const n=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);if(parent)parent.appendChild(n);return n}
+function svg(w,h,parent){parent.innerHTML='';return el('svg',{viewBox:`0 0 ${w} ${h}`,role:'img'},parent)}
+function hover(node,html){node.addEventListener('mousemove',e=>showTip(e,html));node.addEventListener('mouseleave',hideTip)}
+function text(s,x,y,attrs,parent){const t=el('text',{x,y,...attrs},parent);t.textContent=s;return t}
+function bar(x,y,w,h,fill,parent){// 4px rounded data end anchored at the baseline
+  if(h<=0)return; const r=Math.min(4,h,w/2);
+  return el('path',{d:`M${x},${y+h}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h}Z`,fill},parent)}
+function table(id,head,rows){$(id).innerHTML='<table><tr>'+head.map(h=>`<th>${h}</th>`).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('')+'</table>'}
+function niceMax(v){const p=Math.pow(10,Math.floor(Math.log10(Math.max(v,1))));return Math.ceil(v/p/ (v/p>5?2:1))*p*(v/p>5?2:1)}
+
+function groupedBars(id,cats,series,colors,names){
+  const W=520,H=230,L=34,B=24,T=8,plotW=W-L-6,plotH=H-B-T,max=niceMax(Math.max(...series.flat()));
+  const s=svg(W,H,$(id)),gw=plotW/cats.length,bw=Math.max(3,(gw-6)/series.length-2);
+  for(let k=0;k<=4;k++){const y=T+plotH-plotH*k/4;el('line',{x1:L,x2:W-6,y1:y,y2:y,stroke:css('--grid')},s);text(Math.round(max*k/4),L-6,y+4,{'text-anchor':'end'},s)}
+  cats.forEach((c,i)=>{const gx=L+i*gw+3;
+    series.forEach((vals,j)=>{const h=plotH*vals[i]/max;bar(gx+j*(bw+2),T+plotH-h,bw,h,colors[j],s)});
+    text(c,L+i*gw+gw/2,H-6,{'text-anchor':'middle','font-size':cats.length>10?10:12},s);
+    const hit=el('rect',{x:L+i*gw,y:T,width:gw,height:plotH,class:'hit'},s);
+    hover(hit,`<b>${c}</b><br>`+series.map((v,j)=>`${names[j]}: ${v[i]}`).join('<br>'))});
+}
+function histograms(id,data,names){
+  const wrap=$(id);wrap.innerHTML='';const max=niceMax(Math.max(...Object.values(data).flat()));
+  for(const[k,bins]of Object.entries(data)){const d=document.createElement('div');wrap.appendChild(d);
+    const W=200,H=120,L=4,B=18,T=16,pw=W-2*L,ph=H-B-T,s=svg(W,H,d),bw=pw/bins.length;
+    text(names[k],L,11,{class:'ink','font-weight':600},s);
+    el('line',{x1:L,x2:W-L,y1:T+ph,y2:T+ph,stroke:css('--line')},s);
+    bins.forEach((v,i)=>{const h=ph*v/max;bar(L+i*bw+1,T+ph-h,bw-2,h,css('--s1'),s);
+      hover(el('rect',{x:L+i*bw,y:T,width:bw,height:ph,class:'hit'},s),`<b>${names[k]}</b> ${i*10}–${i*10+10}th pct<br>${v} profiles`)});
+    text('0',L,H-4,{},s);text('50',W/2,H-4,{'text-anchor':'middle'},s);text('100',W-L,H-4,{'text-anchor':'end'},s)}
+}
+function diverging(v){// blue (positive) – gray midpoint – red (negative), |r| up to 0.8
+  const a=Math.min(Math.abs(v)/.8,1),pole=v>=0?css('--s1'):css('--neg');return `color-mix(in oklab, ${pole} ${Math.round(a*100)}%, ${css('--mid')})`}
+function heatmap(id,rows,cols,matrix,{fmt=v=>v.toFixed(2),color=diverging,tipFn,cellH=34,labelW=140}={}){
+  const W=Math.max(520,labelW+cols.length*44),H=28+rows.length*cellH,cw=(W-labelW)/cols.length,s=svg(W,H,$(id));
+  cols.forEach((c,j)=>text(c,labelW+j*cw+cw/2,16,{'text-anchor':'middle'},s));
+  rows.forEach((r,i)=>{text(r,labelW-8,28+i*cellH+cellH/2+4,{'text-anchor':'end'},s);
+    cols.forEach((c,j)=>{const v=matrix[i][j],x=labelW+j*cw,y=28+i*cellH;
+      const cell=el('rect',{x:x+1,y:y+1,width:cw-2,height:cellH-2,rx:4,fill:v==null||isNaN(v)?css('--grid'):color(v)},s);
+      const strong=Math.abs(v)>.45&&color===diverging;
+      if(cellH>=24)text(v==null||isNaN(v)?'–':fmt(v),x+cw/2,y+cellH/2+4,{'text-anchor':'middle',fill:strong?'#fff':css('--ink')},s).style.fill=strong?'#fff':css('--ink');
+      hover(cell,tipFn?tipFn(i,j,v):`<b>${r}</b> × ${c}<br>${fmt(v)}`)})});
+}
+function sequential(v){return `color-mix(in oklab, ${css('--s1')} ${Math.round(Math.min(v,1)*100)}%, ${css('--surface')})`}
+
+async function loadSummary(){
+  const s=await (await fetch('/api/summary')).json();
+  $('intro').textContent=`${s.profiles} PDB community profiles (sample: ${s.samples.join(', ')}), crawled in PDB "Top" order. Agent Big Five available for ${s.big5.n}.`;
+  groupedBars('c-mbti',s.mbti.types,[s.mbti.crowd,s.mbti.form_m],[css('--s1'),css('--s2')],['Crowd','Agent Form M']);
+  table('t-mbti',['Type','Crowd','Agent Form M'],s.mbti.types.map((t,i)=>[t,s.mbti.crowd[i],s.mbti.form_m[i]]));
+  groupedBars('c-ennea',s.enneagram.cores,[s.enneagram.crowd,s.enneagram.agent],[css('--s1'),css('--s2')],['Crowd','Agent self-typing']);
+  table('t-ennea',['Core','Crowd','Agent'],s.enneagram.cores.map((c,i)=>[c,s.enneagram.crowd[i],s.enneagram.agent[i]]));
+  $('n-big5').textContent=`${s.big5.n} profiles; percentiles against the IPIP-NEO-120 internet norm sample.`;
+  histograms('c-big5',s.big5.histograms,s.big5.names);
+  table('t-big5',['Domain',...[...Array(10)].map((_,i)=>`${i*10}–${i*10+10}`)],Object.entries(s.big5.histograms).map(([k,v])=>[s.big5.names[k],...v]));
+  const dn=s.big5.domains.map(k=>s.big5.names[k]);
+  $('n-letters').textContent=`Spearman ρ between each profile's share of crowd votes for a letter and its agent Big Five score (n=${s.crowd_letters_vs_big5.n}). Blue = positive, red = negative.`;
+  heatmap('c-letters',dn,s.crowd_letters_vs_big5.letters,s.crowd_letters_vs_big5.matrix);
+  table('t-letters',['',...s.crowd_letters_vs_big5.letters],dn.map((d,i)=>[d,...s.crowd_letters_vs_big5.matrix[i].map(v=>v.toFixed(2))]));
+  $('n-b5corr').textContent=`Spearman ρ between agent Big Five raw scores (n=${s.big5_correlation.n}).`;
+  heatmap('c-b5corr',dn,s.big5.domains,s.big5_correlation.matrix);
+  table('t-b5corr',['',...s.big5.domains],dn.map((d,i)=>[d,...s.big5_correlation.matrix[i].map(v=>v.toFixed(2))]));
+  const c=s.mbti_by_enneagram,keep=c.types.map((t,i)=>[t,c.counts[i]]).filter(([,r])=>r.reduce((a,b)=>a+b,0)>0);
+  const share=keep.map(([,r])=>{const n=r.reduce((a,b)=>a+b,0);return r.map(v=>v/n)});
+  heatmap('c-cross',keep.map(([t,r])=>`${t} (n=${r.reduce((a,b)=>a+b,0)})`),c.cores,share,{fmt:v=>Math.round(v*100)+'%',color:sequential,cellH:22,labelW:110,
+    tipFn:(i,j,v)=>`<b>${keep[i][0]}</b> → core ${c.cores[j]}<br>${keep[i][1][j]} profiles (${Math.round(v*100)}%)`});
+  table('t-cross',['Type',...c.cores.map(x=>'Core '+x)],keep.map(([t,r])=>[t,...r]));
+}
+
+function rangeRows(id,items){// Big Five: percentile bar with ±error band
+  const W=520,row=44,L=150,R=16,pw=W-L-R,s=svg(W,items.length*row+20,$(id));
+  [0,25,50,75,100].forEach(p=>{const x=L+pw*p/100;el('line',{x1:x,x2:x,y1:4,y2:items.length*row,stroke:css('--grid')},s);text(p,x,items.length*row+14,{'text-anchor':'middle'},s)});
+  items.forEach((it,i)=>{const y=i*row+8;
+    text(it.name,L-10,y+14,{'text-anchor':'end',class:'ink','font-weight':600},s);text(`r = ${it.cv.spearman.toFixed(2)}`,L-10,y+29,{'text-anchor':'end',class:'mut'},s);
+    el('rect',{x:L+pw*it.low/100,y:y+4,width:Math.max(2,pw*(it.high-it.low)/100),height:20,rx:4,fill:css('--s1-soft')},s);
+    el('rect',{x:L,y:y+11,width:pw*it.percentile/100,height:6,rx:3,fill:css('--s1')},s);
+    el('circle',{cx:L+pw*it.percentile/100,cy:y+14,r:6,fill:css('--s1'),stroke:css('--surface'),'stroke-width':2},s);
+    text(Math.round(it.percentile),Math.min(L+pw*it.percentile/100+10,W-R-14),y+2,{class:'ink'},s);
+    hover(el('rect',{x:L,y,width:pw,height:28,class:'hit'},s),`<b>${it.name}</b><br>${Math.round(it.percentile)}th percentile (range ${Math.round(it.low)}–${Math.round(it.high)})<br>CV Spearman r ${it.cv.spearman.toFixed(2)}, n=${it.cv.n}`)});
+}
+function letterRows(id,letters){
+  const W=520,row=42,L=40,R=40,pw=W-L-R,mid=L+pw/2,s=svg(W,Object.keys(letters).length*row+18,$(id));
+  el('line',{x1:mid,x2:mid,y1:0,y2:Object.keys(letters).length*row,stroke:css('--line')},s);
+  Object.entries(letters).forEach(([pair,v],i)=>{const y=i*row+6,p=v.p_first,w=Math.abs(p-.5)*pw,first=p>=.5;
+    text(pair[0],L-12,y+16,{'text-anchor':'middle',class:first?'ink':'mut','font-weight':700},s);
+    text(pair[1],W-R+12,y+16,{'text-anchor':'middle',class:first?'mut':'ink','font-weight':700},s);
+    el('rect',{x:L,y:y+6,width:pw,height:14,rx:4,fill:css('--grid')},s);
+    el('rect',{x:first?mid-w:mid,y:y+6,width:Math.max(2,w),height:14,rx:4,fill:css('--s1')},s);
+    text(`${Math.round(Math.max(p,1-p)*100)}% ${first?pair[0]:pair[1]} · CV ${Math.round(v.cv.balanced_accuracy*100)}%`,mid,y+34,{'text-anchor':'middle',class:'mut'},s);
+    hover(el('rect',{x:L,y,width:pw,height:24,class:'hit'},s),`<b>${pair[0]} vs ${pair[1]}</b><br>P(${pair[0]}) = ${(p*100).toFixed(0)}%<br>Cross-validated balanced accuracy ${(v.cv.balanced_accuracy*100).toFixed(0)}% (chance 50%), n=${v.cv.n}`)});
+}
+function enneaBars(id,e){
+  const W=520,H=190,L=34,B=22,T=8,pw=W-L-6,ph=H-B-T,max=Math.max(.3,...e.probabilities),s=svg(W,H,$(id)),gw=pw/e.cores.length;
+  [0,.5,1].forEach(k=>{const y=T+ph-ph*k;el('line',{x1:L,x2:W-6,y1:y,y2:y,stroke:css('--grid')},s);text(Math.round(max*k*100)+'%',L-6,y+4,{'text-anchor':'end'},s)});
+  const top=e.probabilities.indexOf(Math.max(...e.probabilities));
+  e.cores.forEach((c,i)=>{const h=ph*e.probabilities[i]/max;bar(L+i*gw+gw*.2,T+ph-h,gw*.6,h,i===top?css('--s1'):css('--s1-soft'),s);
+    text(c,L+i*gw+gw/2,H-5,{'text-anchor':'middle',class:i===top?'ink':''},s);
+    hover(el('rect',{x:L+i*gw,y:T,width:gw,height:ph,class:'hit'},s),`<b>Core ${c}</b><br>${(e.probabilities[i]*100).toFixed(0)}%`)});
+}
+async function assess(){
+  const t=$('text').value;if(!t.trim())return;
+  $('go').disabled=true;$('status').textContent='Scoring…';
+  try{const r=await (await fetch('/api/assess',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})})).json();
+    if(r.error){$('status').textContent=r.error;return}
+    $('result').style.display='block';$('status').textContent='';
+    $('warn').innerHTML=r.short_text?`<div class="warn">Only ${r.words} words after removing typology labels. The models were trained on profiles with hundreds to thousands of words, so treat short-text results as rough.</div>`:'';
+    rangeRows('r-big5',Object.values(r.big5));
+    $('r-type').textContent=r.mbti;letterRows('r-mbti',r.mbti_letters);
+    $('r-ennea-note').textContent=`Most likely core ${r.enneagram.cores[r.enneagram.probabilities.indexOf(Math.max(...r.enneagram.probabilities))]}. Cross-validated top-1 accuracy ${Math.round(r.enneagram.cv.top1*100)}% vs ${Math.round(r.enneagram.cv.chance*100)}% for always guessing the commonest core, so this is weak.`;
+    enneaBars('r-ennea',r.enneagram);
+  }catch(e){$('status').textContent='Request failed: '+e.message}
+  finally{$('go').disabled=false}
+}
+$('go').onclick=assess;
+$('text').addEventListener('input',()=>{const n=($('text').value.match(/\b\w+\b/g)||[]).length;$('count').textContent=`${n} words`});
+$('text').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))assess()});
+let summaryCache=null;
+$('theme').onclick=()=>{const d=document.documentElement,cur=d.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  d.dataset.theme=cur==='dark'?'light':'dark';try{localStorage.setItem('theme',d.dataset.theme)}catch(e){}loadSummary();if($('result').style.display==='block')assess()};
+try{const t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
+loadSummary().catch(e=>$('intro').textContent='Could not load the dataset summary: '+e.message);
+</script>
+</body>
+</html>

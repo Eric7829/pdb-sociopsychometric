@@ -75,6 +75,23 @@ Text processing is heuristic: question-mark endings and explicit prompt prefixes
 
 On the Top database: 574 profiles, 31,175 segments, 650 quotes and 11,288 reply contexts (every reply whose target is still visible), with 0 `raw_text` mismatches. Creator words split as 90% prose, 5% prompts, 4% answers and 0.6% quotes.
 
+## Personality panel
+
+```powershell
+rtk .venv\Scripts\python -m pdb_ingest panel --db data/pdb-top.duckdb   # then open http://127.0.0.1:8765/
+```
+
+A local web page that only listens on 127.0.0.1. It opens the database read-only and shows aggregate charts only:
+- crowd vs agent MBTI and Enneagram distributions
+- agent Big Five percentile histograms
+- crowd vote share vs Big Five correlations
+- Big Five intercorrelations
+- the MBTI × Enneagram bundling heatmap
+
+The **assessor** scores a typed self-description with typology labels scrubbed. It averages TF-IDF and `multilingual-e5-small` models trained at startup on the Top sample. It reports Big Five percentiles with ±1 cross-validated error bands, MBTI letter probabilities and Enneagram core probabilities, each with its cross-validated accuracy. Assessed text is never stored or logged.
+
+Predictions mimic the *agent's* reading. That reading is skewed in this sample (high O and N, low C, E and A), so new texts are pulled toward that profile. First start embeds any uncached profiles; after that, startup takes seconds.
+
 ## Stage 3: psychometric agent battery
 
 Each complete profile's creator-authored corpus (`raw_text` by default, `--text-view scrubbed` for the jargon-free view) is placed inside `<biographical_corpus>` in a fixed persona-simulation system prompt. The model then answers through forced tool calls: five 24-item IPIP-NEO-120 blocks (1–5), two MBTI Form M blocks (A/B), and one self-typing call (MBTI, Enneagram with wing, first-person rationale). Calls are independent, so no block sees earlier answers, and they share the same prefix. Answers that are invalid or incomplete are retried up to twice. Scoring is local: `IPIP-NEO-120-compact/ipip_neo.py` and `pdb_ingest/formm.py`, a Python port of `MBTI Form M/scorer.js` (a parity test runs when Node is installed).

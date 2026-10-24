@@ -45,6 +45,8 @@ Span layer (`text.segment_spans`, `quotes.py`, `context.py`, `annotate.py`, `enc
 
 Supplemental samples: `crawl --sample es --type-filter '^ES[TF][JP]' --min-words 200` adds listing-filtered profiles with their own scope and checkpoints; queue rows carry `sample`. The main Top dataset is `data/pdb-top.duckdb` (`sample='top'`: 500 usable; `sample='es'`: 59 assessable ES profiles).
 
+Panel (`panel.py`, `panel_static/index.html`, `pdb_ingest panel`): a stdlib HTTP server on 127.0.0.1 serving aggregates plus an assessor (TF-IDF + E5 ridge/logistic, cross-validated at startup). Never log or store assessed text. `.claude/launch.json` has a `panel` config for the browser pane.
+
 ## Domain rules to preserve
 
 The README's "Stored data" section is the spec; key invariants:
