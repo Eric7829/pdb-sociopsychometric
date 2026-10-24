@@ -20,6 +20,17 @@ from pdb_ingest.encoder_text import encoder_view
 
 LETTERS=[('E','I'),('S','N'),('T','F'),('J','P')]
 
+def expand_matryoshka(encoders,dims):
+    """Add '<encoder>@k' variants (leading k dims, re-normalised) for Matryoshka-trained encoders."""
+    from pdb_ingest import embed
+    out=dict(encoders)
+    for name,vecs in encoders.items():
+        if name.replace('--','/',1) not in embed.MATRYOSHKA_DIMS: continue
+        full=len(next(iter(vecs.values())))
+        for k in dims:
+            if k<full: out[f'{name}@{k}']={n:np.asarray(embed.matryoshka(v,k)) for n,v in vecs.items()}
+    return out
+
 def zscore(x):
     x=np.asarray(x,dtype=float); sd=x.std()
     return (x-x.mean())/sd if sd else x*0
@@ -57,8 +68,10 @@ def main():
     p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--db',type=Path,required=True); p.add_argument('--view',default='main',choices=sorted(distill.VIEWS))
     p.add_argument('--output',type=Path,default=Path('data/stage2/compare.json'))
+    p.add_argument('--matryoshka',default='',help='Comma-separated leading-dimension sizes to also test for MRL encoders, e.g. 64,128,256')
     args=p.parse_args()
     ipip,modal,docs,encoders=load(readonly_store(args.db),args.view)
+    if args.matryoshka: encoders=expand_matryoshka(encoders,[int(x) for x in args.matryoshka.split(',')])
     cv=KFold(5,shuffle=True,random_state=0); alphas=np.logspace(-1,4,12); result={'view':args.view,'encoders':list(encoders)}
     def features(ids):
         f={'tfidf':(TfidfVectorizer(min_df=3,max_features=50000,sublinear_tf=True).fit_transform([docs[n] for n in ids]),False)}

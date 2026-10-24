@@ -172,3 +172,20 @@ def test_embed_views_mean_path_is_unchanged():
 def test_jina_chunks_fit_an_8gb_gpu():
     # Measured on an RTX 5060 8 GB: 2048 tokens = 0.72 s / 2.0 GB; 8192 tokens spilled into system RAM (11.6 GB, 171 s).
     assert embed.POOLING[embed.JINA]=='last' and embed.CHUNK_TOKENS[embed.JINA]==2048 and 0<embed.GPU_MEMORY_FRACTION<=.9
+
+def test_matryoshka_keeps_leading_dims_and_renormalises():
+    import numpy as np
+    v=[3.0,4.0,12.0,0.0]
+    assert embed.matryoshka(v,2)==pytest.approx([0.6,0.8]) and embed.matryoshka(v,None)==v
+    assert np.allclose(embed.matryoshka(np.array([[3.0,4.0,1.0],[0.0,2.0,9.0]]),2),[[0.6,0.8],[0.0,1.0]])
+    assert embed.MATRYOSHKA_DIMS[embed.JINA]==(32,64,128,256,512,768,1024)
+
+def test_compare_text_models_expands_matryoshka_encoders():
+    import importlib.util,numpy as np
+    spec=importlib.util.spec_from_file_location('ctm',embed.Path(__file__).resolve().parents[1]/'tools'/'compare_text_models.py')
+    ctm=importlib.util.module_from_spec(spec); spec.loader.exec_module(ctm)
+    enc={'jinaai--jina-embeddings-v5-text-small-classification':{1:np.ones(1024)},'intfloat--multilingual-e5-small':{1:np.ones(384)}}
+    out=ctm.expand_matryoshka(enc,[64,256])
+    assert set(out)=={'intfloat--multilingual-e5-small','jinaai--jina-embeddings-v5-text-small-classification',
+                      'jinaai--jina-embeddings-v5-text-small-classification@64','jinaai--jina-embeddings-v5-text-small-classification@256'}
+    assert out['jinaai--jina-embeddings-v5-text-small-classification@64'][1].shape==(64,)

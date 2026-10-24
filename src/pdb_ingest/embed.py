@@ -10,9 +10,19 @@ POOLING={JINA:'last'}
 # Chunk size for last-token models, picked for an 8 GB GPU: attention memory grows ~quadratically without flash attention
 # (2048 tokens: 0.72 s, 2.0 GB; 8192 tokens: 11.6 GB, spilled into system RAM, 171 s).
 CHUNK_TOKENS={JINA:2048}
+# Matryoshka (MRL) models: the leading k dimensions are themselves a trained embedding, so slicing is a principled way to
+# shrink features for small samples.
+MATRYOSHKA_DIMS={JINA:(32,64,128,256,512,768,1024)}
 # Cap PyTorch's share of GPU memory so an oversized input raises OOM (then CPU fallback) instead of Windows silently spilling
 # into system RAM and slowing ~200x.
 GPU_MEMORY_FRACTION=.85
+
+def matryoshka(v,k):
+    """Leading k dimensions, re-normalised to unit length (rows of a 2-D array, or one vector); k=None returns v unchanged."""
+    if k is None: return v
+    import numpy as np
+    a=np.asarray(v,dtype=float)[...,:k]; n=np.linalg.norm(a,axis=-1,keepdims=True); a=a/np.where(n==0,1,n)
+    return a.tolist() if isinstance(v,list) else a
 
 def model_slug(name):
     return name.replace('/','--')

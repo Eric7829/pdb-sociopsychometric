@@ -51,6 +51,7 @@ def main():
     p.add_argument('--both-only',action='store_true',help='Restrict to profiles that have both a crowd type and an agent result')
     p.add_argument('--output',type=Path,default=None)
     p.add_argument('--encoder',default='intfloat--multilingual-e5-small',help='Cached encoder folder under data/stage2/emb')
+    p.add_argument('--dims',type=int,default=None,help='Matryoshka: keep the leading k dimensions (re-normalised)')
     args=p.parse_args()
     store=readonly_store(args.db); rows=panel.load_rows(store.connection)
     cache=Path('data/stage2/emb')/args.encoder/'main'; docs={}; vecs={}
@@ -62,6 +63,9 @@ def main():
         if f.exists(): docs[n]=' '.join(t[a:b] for t,rs in v for a,b in rs); vecs[n]=np.load(f)
     ids=sorted(docs); y=np.array([panel.modal(rows[n]['mbti_counts']) if args.target=='crowd' else rows[n]['form_m'] for n in ids])
     D=np.array([docs[n] for n in ids],dtype=object); E=np.array([vecs[n] for n in ids])
+    if args.dims:
+        from pdb_ingest import embed
+        E=embed.matryoshka(E,args.dims)
     tf=lambda:TfidfVectorizer(min_df=3,max_features=50000,sublinear_tf=True)
     oof={k:np.zeros((len(ids),16)) for k in ('letters_balanced','letters','type')}
     for train,test in KFold(5,shuffle=True,random_state=0).split(ids):
@@ -87,7 +91,7 @@ def main():
     blends={w:evaluate(pool(oof['letters'],oof['type'],w),y) for w in grid}
     best=min(grid,key=lambda w:blends[w]['log_loss']); res['blend']={'w_letters':best,**blends[best]}
     res['blend_grid']={str(w):{k:round(v,3) for k,v in blends[w].items()} for w in grid}
-    (args.output or Path(f'data/stage2/type_models_{args.target}{"_both" if args.both_only else ""}_{args.encoder}.json')).write_text(json.dumps(res,indent=1),encoding='utf-8')
+    (args.output or Path(f'data/stage2/type_models_{args.target}{"_both" if args.both_only else ""}_{args.encoder}{f"@{args.dims}" if args.dims else ""}.json')).write_text(json.dumps(res,indent=1),encoding='utf-8')
     print(json.dumps({k:v for k,v in res.items() if k not in ('blend_grid','type_counts')},indent=1))
 
 if __name__=='__main__': main()
