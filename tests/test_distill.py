@@ -102,7 +102,7 @@ def test_run_distill_end_to_end_with_fakes(tmp_path):
                                    out_root=tmp_path/'stage2',folds=3,epochs=50)
     assert report['view']=='main' and report['embedded']==60 and report['targets']==60
     assert set(report['metrics'])=={'MBTI','ENNEAGRAM','AP'} and report['metrics']['ENNEAGRAM']=={'n':0}
-    assert (tmp_path/'stage2'/'main'/'report.json').exists() and list((tmp_path/'stage2'/'emb'/'main').glob('*.npy'))
+    assert (tmp_path/'stage2'/'main'/'report.json').exists() and list((tmp_path/'stage2'/'emb'/'custom'/'main').glob('*.npy'))
 
 def test_validation_split_is_shuffled_and_deterministic():
     train=list(range(100,170))
@@ -124,3 +124,23 @@ def test_cli_audit_and_distill_are_wired(tmp_path):
         for cmd in ('audit','distill'):
             with pytest.raises(SystemExit) as e: main([cmd,'--help'])
             assert e.value.code==0
+
+def test_prefix_tokens_are_never_pooled():
+    def tokenize(text):  # whitespace tokenizer with character offsets
+        out=[];pos=0
+        for w in text.split(' '): out.append((pos,pos+len(w))); pos+=len(w)+1
+        return list(range(len(out))),out
+    tok=embed.prefixed(tokenize,'passage: ')
+    ids,offsets=tok('hello world')
+    assert len(ids)==3 and offsets[0][1]<=0 and offsets[1:]==[(0,5),(6,11)]
+    (vec,n),=embed.embed_segments([('hello world',[(0,11)])],tok,lambda ids:[[float(i)] for i in ids])
+    assert n==2 and vec==[3.0]
+
+def test_segment_normalization_weights_unit_vectors_by_length():
+    views=[('a b',[(0,3)]),('c',[(0,1)])]
+    tokenize=lambda t:(list(range(len(t.split()))),[(i*2,i*2+1) for i in range(len(t.split()))])
+    res=embed.embed_segments(views,tokenize,lambda ids:[[3.0,4.0] for _ in ids],normalize_segments=True)
+    assert [n for _,n in res]==[2,1] and embed.profile_vector(res)==pytest.approx([0.6,0.8])
+
+def test_cache_path_includes_model():
+    assert embed.model_slug('intfloat/multilingual-e5-small')=='intfloat--multilingual-e5-small'

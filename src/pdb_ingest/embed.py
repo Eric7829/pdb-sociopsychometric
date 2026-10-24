@@ -1,10 +1,24 @@
 """Frozen-encoder segment embeddings, pooled only over encoder_view's pooled character ranges (torch imported lazily)."""
 from pathlib import Path
-DEFAULT_MODEL='answerdotai/ModernBERT-base'
+DEFAULT_MODEL='intfloat/multilingual-e5-small'
+# E5 models expect a "passage: " prefix on documents; its tokens are never pooled.
+PREFIXES={'intfloat/multilingual-e5-small':'passage: ','intfloat/multilingual-e5-base':'passage: '}
+
+def model_slug(name):
+    return name.replace('/','--')
+
+def prefixed(tokenize,prefix):
+    """Tokenize prefix+text but report offsets relative to text, so prefix tokens fall outside every pooled range."""
+    if not prefix: return tokenize
+    def run(text):
+        ids,offsets=tokenize(prefix+text)
+        return ids,[(a-len(prefix),b-len(prefix)) for a,b in offsets]
+    return run
 
 def windows(n,max_tokens,stride):
     """Overlapping windows over n tokens; each token is owned by exactly one window (the middle of the overlap splits it)."""
     if n<=max_tokens: return [(0,n,0,n)]
+    if not 0<=stride<max_tokens: raise ValueError('stride must be smaller than max_tokens')
     step=max_tokens-stride; out=[]; start=0
     while True:
         end=min(start+max_tokens,n); first=start==0; last=end==n
@@ -18,18 +32,22 @@ def pooled_tokens(offsets,ranges):
     """Token i is pooled when its character midpoint falls inside a pooled range (special/empty tokens never)."""
     return [b>a and any(r0<=(a+b)/2<r1 for r0,r1 in ranges) for a,b in offsets]
 
-def embed_segments(views,tokenize,encode,*,max_tokens=8192,stride=512):
-    """views: [(text, pooled_ranges)]; tokenize(text)->(ids, offsets); encode(ids)->list of token vectors (no specials).
-    Returns [(summed vector or None, pooled token count)] per view."""
+def embed_segments(views,tokenize,encode,*,max_tokens=8192,stride=512,normalize_segments=False):
+    """views: [(text, pooled_ranges)]; tokenize(text)->(ids, offsets); encode(ids)->token vectors (no specials).
+    Returns [(summed vector or None, pooled token count)] per view. With normalize_segments, the "sum" is the segment's
+    unit-length mean vector times its count, so profile_vector gives a length-weighted mean of unit segment vectors."""
+    import numpy as np
     out=[]
     for text,ranges in views:
-        ids,offsets=tokenize(text); mask=pooled_tokens(offsets,ranges); total=None; count=0
+        ids,offsets=tokenize(text); mask=np.array(pooled_tokens(offsets,ranges),dtype=bool); total=None; count=0
         for start,end,own0,own1 in windows(len(ids),max_tokens,stride):
-            vecs=encode(ids[start:end])
-            for i in range(own0,own1):
-                if mask[i]:
-                    v=vecs[i-start]; total=list(v) if total is None else [a+b for a,b in zip(total,v)]; count+=1
-        out.append((total,count))
+            keep=mask[own0:own1]
+            if not keep.any(): continue
+            vecs=np.asarray(encode(ids[start:end]),dtype=np.float64)[own0-start:own1-start][keep]
+            total=vecs.sum(0) if total is None else total+vecs.sum(0); count+=int(keep.sum())
+        if total is not None and normalize_segments:
+            norm=np.linalg.norm(total/count); total=total/count/(norm or 1)*count
+        out.append((None if total is None else total.tolist(),count))
     return out
 
 def profile_vector(segment_results):
@@ -49,17 +67,19 @@ def with_cpu_fallback(gpu,cpu,stats,oom_errors):
             return cpu(ids)
     return encode
 
-def hf_encoder(model_name=DEFAULT_MODEL,device=None):
+def hf_encoder(model_name=DEFAULT_MODEL,device=None,prefix=None):
     """(tokenize, encode, stats) for a Hugging Face encoder; CUDA fp16 when available, per-window CPU fallback on OOM."""
     import torch
     from transformers import AutoModel,AutoTokenizer
     device=device or ('cuda' if torch.cuda.is_available() else 'cpu')
     tok=AutoTokenizer.from_pretrained(model_name)
     model=AutoModel.from_pretrained(model_name,torch_dtype=torch.float16 if device=='cuda' else torch.float32).to(device).eval()
-    cpu_model=None; stats={'cpu_fallbacks':0,'device':device}
-    def tokenize(text):
+    # Content tokens per window: the model's position limit minus CLS/SEP.
+    cpu_model=None; stats={'cpu_fallbacks':0,'device':device,'model':model_name,'max_tokens':min(tok.model_max_length,8192)-2}
+    def raw_tokenize(text):
         enc=tok(text,add_special_tokens=False,return_offsets_mapping=True)
         return enc['input_ids'],enc['offset_mapping']
+    tokenize=prefixed(raw_tokenize,PREFIXES.get(model_name,'') if prefix is None else prefix)
     def run(m,dev,ids):
         x=torch.tensor([[tok.cls_token_id]+list(ids)+[tok.sep_token_id]],device=dev)
         with torch.no_grad(): return m(input_ids=x).last_hidden_state[0,1:-1].float().cpu().tolist()

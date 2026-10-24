@@ -128,7 +128,8 @@ def cross_validate(X,targets,classes=None,*,folds=5,seed=0,epochs=300,patience=2
 
 VIEWS={'main':{'scrub':True,'mask_prompts':True},'unmasked':{'scrub':True,'mask_prompts':False},'raw':{'scrub':False,'mask_prompts':True}}
 
-def run_distill(store,view='main',*,views_fn=None,encoder=None,out_root='data/stage2',folds=5,epochs=300,seed=0,samples=('top',)):
+def run_distill(store,view='main',*,views_fn=None,encoder=None,out_root='data/stage2',folds=5,epochs=300,seed=0,samples=('top',),
+                normalize_segments=True):
     """Embed every profile with targets under one encoder view, cross-validate, and write <out_root>/<view>/report.json."""
     import hashlib
     from pathlib import Path
@@ -137,13 +138,15 @@ def run_distill(store,view='main',*,views_fn=None,encoder=None,out_root='data/st
         from .encoder_text import encoder_view as views_fn
     tokenize,encode,stats=encoder or embed.hf_encoder()
     targets,dropped=load_targets(store.connection,samples=samples)
-    X={}
+    X={}; max_tokens=stats.get('max_tokens',8192); stride=min(512,max_tokens//4)
+    cache=Path(out_root)/'emb'/embed.model_slug(stats.get('model','custom'))/view
     for n in sorted(targets):
         views=views_fn(store,n,**VIEWS[view])
         sha=hashlib.sha256(json.dumps(views,ensure_ascii=False).encode('utf-8')).hexdigest()
-        vec=embed.cached_vector(Path(out_root)/'emb'/view,n,sha,lambda:embed.profile_vector(embed.embed_segments(views,tokenize,encode)))
+        vec=embed.cached_vector(cache,n,sha,lambda:embed.profile_vector(embed.embed_segments(views,tokenize,encode,max_tokens=max_tokens,
+                                                                                              stride=stride,normalize_segments=normalize_segments)))
         if vec is not None: X[n]=vec
-    report={'view':view,'options':VIEWS[view],'samples':list(samples),'targets':len(targets),'embedded':len(X),'dropped_votes_outside_classes':dropped,
+    report={'view':view,'options':VIEWS[view],'normalize_segments':normalize_segments,'samples':list(samples),'targets':len(targets),'embedded':len(X),'dropped_votes_outside_classes':dropped,
             'encoder':{k:v for k,v in stats.items()},'folds':folds,'seed':seed,
             'metrics':cross_validate(X,targets,folds=folds,seed=seed,epochs=epochs)}
     path=Path(out_root)/view/'report.json'; path.parent.mkdir(parents=True,exist_ok=True)
