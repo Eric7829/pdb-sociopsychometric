@@ -58,6 +58,7 @@ class Comment:
     self_votes: list[SelfVote] = field(default_factory=list)
     flair: str | None = None
     reply_count: int = 0
+    reply_to_user_id: str | None = None
 
 @dataclass
 class CreatorMatch:

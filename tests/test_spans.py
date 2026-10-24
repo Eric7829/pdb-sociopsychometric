@@ -29,3 +29,18 @@ def test_quote_inside_answer_splits_span():
     spans=merge_quotes(segment_spans(t),quote_ranges(t,['you are clearly a sensor because you love details']))
     assert [s.kind for s in spans if s.start>=t.index('Because')][:3]==['ANSWER','QUOTE','ANSWER']
     assert all(x.end<=y.start for x,y in zip(spans,spans[1:]))
+from pdb_ingest.models import Comment
+from pdb_ingest.context import reply_context
+P=Comment('1','9','voter','you seem INTP',parent_id=None)
+A=Comment('2','42','me','no, INFP',parent_id='1',reply_to_user_id='9')
+B=Comment('3','7','other','why INFP?',parent_id='1',reply_to_user_id='42')
+C=Comment('4','42','me','because Fi',parent_id='1',reply_to_user_id='7')
+def test_context_is_latest_earlier_comment_by_target(): assert reply_context(C,[P,A,B,C]) is B
+def test_falls_back_to_parent(): assert reply_context(A,[P,A,B,C]) is P
+def test_missing_reply_target_gives_no_context():
+    assert reply_context(Comment('5','42','me','hm',parent_id='1',reply_to_user_id='555'),[P]) is None
+def test_self_reply_has_no_context():
+    assert reply_context(Comment('6','42','me','also',parent_id='1',reply_to_user_id='42'),[P,A]) is None
+def test_parse_comment_keeps_reply_target():
+    from pdb_ingest.adapters import parse_comment
+    assert parse_comment({'id':2,'user_id':42,'comment':'x','parent_id':1,'reply_to_user_id':9}).reply_to_user_id=='9'

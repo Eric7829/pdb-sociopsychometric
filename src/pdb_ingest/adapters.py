@@ -64,7 +64,8 @@ def parse_comment(row):
         return Comment(str(row['id']),str(row['user_id']) if row.get('user_id') else None,row.get('username'),
                        row['comment'] if not row.get('is_hidden') and row.get('is_active',True) else '',
                        bool(row.get('is_pinned')),str(row['parent_id']) if row.get('parent_id') else None,
-                       evidence,row.get('user_mbti'),row.get('reply_count',0))
+                       evidence,row.get('user_mbti'),row.get('reply_count',0),
+                       str(row['reply_to_user_id']) if row.get('reply_to_user_id') else None)
     except (KeyError,TypeError) as e:
         raise SchemaError('Unrecognized comment response') from e
 
