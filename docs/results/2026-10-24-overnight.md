@@ -109,3 +109,19 @@ The independent review (opus) found 0 Critical and 5 Important issues, all fixed
 - `annotate` doesn't delete rows for profiles that later become incomplete.
 - About 1.4% of replies that PDB records as self-targeted lose their context.
 - Prompt C itself was not A/B'd beyond the framing check, by your decision.
+
+## Follow-up: encoder swap and stacking (same day)
+
+ModernBERT-base was removed from the Hugging Face cache (573 MB freed) and replaced by `intfloat/multilingual-e5-small` (470 MB). E5-small is a purpose-built multilingual embedding model; it gets a "passage: " prefix, 510-token windows and unit-normalized segment vectors. Comparison script: `tools/compare_text_models.py`, run on the same profiles and folds (348 for IPIP, 386 for crowd letters):
+
+| Agent IPIP, Spearman r | TF-IDF | ModernBERT-base | e5-small | **TF-IDF + e5 stack** |
+|---|---|---|---|---|
+| O | 0.42 | 0.34 | 0.43 | **0.47** |
+| C | 0.46 | 0.30 | 0.45 | **0.49** |
+| E | 0.41 | 0.37 | 0.41 | **0.45** |
+| A | 0.61 | 0.49 | 0.54 | **0.62** |
+| N | 0.46 | 0.35 | 0.47 | **0.49** |
+
+- **IPIP:** e5-small matches TF-IDF and beats ModernBERT by about 0.09. Averaging the TF-IDF and e5 predictions gives the best result on every domain: mean r 0.50, versus 0.47 for TF-IDF alone and 0.37 for ModernBERT.
+- **Crowd letters:** balanced accuracy stays modest for all models (E/I 0.57–0.62, T/F 0.61–0.64, S/N and J/P 0.51–0.57). With n≈386 the standard error is about 0.03, so the differences between models here are mostly noise.
+- **Crowd vote distributions:** with e5 the Stage 2 MBTI KL is 1.779 against the baseline's 1.776. That's now level with the baseline (ModernBERT was 1.86), but still not better.

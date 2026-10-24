@@ -144,3 +144,10 @@ def test_segment_normalization_weights_unit_vectors_by_length():
 
 def test_cache_path_includes_model():
     assert embed.model_slug('intfloat/multilingual-e5-small')=='intfloat--multilingual-e5-small'
+
+def test_stack_averages_zscored_predictions_without_fitting():
+    import importlib.util,numpy as np
+    spec=importlib.util.spec_from_file_location('ctm',embed.Path(__file__).resolve().parents[1]/'tools'/'compare_text_models.py')
+    ctm=importlib.util.module_from_spec(spec); spec.loader.exec_module(ctm)
+    a=np.array([1.,2.,3.]); b=np.array([10.,30.,20.])
+    assert np.allclose(ctm.stack([a,b]),(ctm.zscore(a)+ctm.zscore(b))/2) and np.allclose(ctm.zscore([5,5,5]),0)
