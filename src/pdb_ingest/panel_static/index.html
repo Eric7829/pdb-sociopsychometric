@@ -68,7 +68,7 @@ td,th{border-bottom:1px solid var(--grid);padding:3px 8px;text-align:right;white
     <div id="warn"></div>
     <div class="grid" style="margin-top:16px">
       <div class="card"><h3>Big Five (percentile)</h3><p class="note">Bar = estimate; band = ±1 cross-validated error. r = how well this predictor tracked the agent's IPIP scores in cross-validation.</p><div id="r-big5"></div></div>
-      <div class="card"><h3>MBTI: crowd vote</h3><div class="hero" id="r-type"></div><p class="note">How PDB voters would most likely type this text. Cross-validated balanced accuracy (chance = 50%) per row.</p><div id="r-mbti"></div></div>
+      <div class="card"><h3>MBTI: crowd vote</h3><div class="hero" id="r-type"></div><p class="note" id="r-type-top"></p><p class="note">How PDB voters would most likely type this text (16-type model distilled from Jev 1.14, pooled with the letter rows). Cross-validated balanced accuracy (chance = 50%) per letter row.</p><div id="r-mbti"></div></div>
       <div class="card"><h3>MBTI: agent (Form M)</h3><div class="hero" id="r-agent-type"></div><p class="note">The type the LLM agent would score on MBTI Form M after reading this text. Cross-validated balanced accuracy per row.</p><div id="r-agent-mbti"></div></div>
       <div class="card"><h3>Enneagram: crowd vote</h3><p class="note" id="r-ennea-note"></p><div id="r-ennea"></div></div>
       <div class="card"><h3>Enneagram: agent self-typing</h3><p class="note" id="r-agent-ennea-note"></p><div id="r-agent-ennea"></div></div>
@@ -207,6 +207,7 @@ async function assess(){
     $('warn').innerHTML=r.short_text?`<div class="warn">Only ${r.words} words after removing typology labels. The models were trained on profiles with hundreds to thousands of words, so treat short-text results as rough.</div>`:'';
     rangeRows('r-big5',Object.values(r.big5));
     $('r-type').textContent=r.mbti;letterRows('r-mbti',r.mbti_letters);
+    const mt=r.mbti_type;$('r-type-top').textContent=`Top 3: ${mt.top.map(x=>`${x.type} ${Math.round(x.p*100)}%`).join(' · ')}. Cross-validated: right type ${Math.round(mt.cv.exact*100)}% of the time, in the top 3 ${Math.round(mt.cv.top3*100)}% (always guessing the commonest type: ${Math.round(mt.cv.chance*100)}%).`;
     $('r-agent-type').textContent=r.agent_mbti;letterRows('r-agent-mbti',r.agent_mbti_letters);
     enneaCard('r-ennea',r.enneagram,'voters');enneaCard('r-agent-ennea',r.agent_enneagram,'the agent');
   }catch(e){$('status').textContent='Request failed: '+e.message}
