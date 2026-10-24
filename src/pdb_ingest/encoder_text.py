@@ -7,7 +7,8 @@ def clean(piece,scrub):
 
 def encoder_view(store,profile_num,*,scrub=True,with_context=True,mask_prompts=True):
     """[(text, pooled_ranges)] in snapshot segment order. Prompts are wrapped [Q]..[/Q], quotes [QUOTE]..[/QUOTE], reply
-    context [CTX]..[/CTX] (prepended, never scrubbed or pooled); answer labels are dropped. Unannotated segments fall back to
+    context [CTX]..[/CTX] (prepended, never pooled); answer labels are dropped. scrub applies to every piece: pooled tokens
+    attend to unpooled context in a bidirectional encoder, so unscrubbed context would leak type labels. Unannotated segments fall back to
     on-the-fly questionnaire spans without quotes or context."""
     q=store.connection.execute; out=[]
     for s in store.load_snapshot(profile_num).segments:
@@ -22,13 +23,14 @@ def encoder_view(store,profile_num,*,scrub=True,with_context=True,mask_prompts=T
             if text: text+=' '
             if pool: ranges.append((len(text),len(text)+len(piece)))
             text+=piece
-        if ctx and ctx[0].strip(): put('[CTX] '+clean(ctx[0],False)+' [/CTX]',False)
+        if ctx and clean(ctx[0],scrub): put('[CTX] '+clean(ctx[0],scrub)+' [/CTX]',False)
         for kind,a,b in spans:
             piece=s.original_text[a:b]
             if kind=='ANSWER_LABEL': continue
-            if kind=='QUOTE': put('[QUOTE] '+clean(piece,False)+' [/QUOTE]',False)
+            if kind=='QUOTE':
+                if clean(piece,scrub): put('[QUOTE] '+clean(piece,scrub)+' [/QUOTE]',False)
             elif kind=='PROMPT':
-                body=clean(piece,scrub and not mask_prompts)
+                body=clean(piece,scrub)
                 if not body: continue
                 put('[Q]',False); put(body,not mask_prompts); put('[/Q]',False)
             else: put(clean(piece,scrub),True)

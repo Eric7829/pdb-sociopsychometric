@@ -103,3 +103,24 @@ def test_run_distill_end_to_end_with_fakes(tmp_path):
     assert report['view']=='main' and report['embedded']==60 and report['targets']==60
     assert set(report['metrics'])=={'MBTI','ENNEAGRAM','AP'} and report['metrics']['ENNEAGRAM']=={'n':0}
     assert (tmp_path/'stage2'/'main'/'report.json').exists() and list((tmp_path/'stage2'/'emb'/'main').glob('*.npy'))
+
+def test_validation_split_is_shuffled_and_deterministic():
+    train=list(range(100,170))
+    val,fit=distill.split_validation(train,seed=0)
+    assert len(val)==10 and sorted(val+fit)==train and val!=train[:10]
+    assert distill.split_validation(train,seed=0)==(val,fit)
+
+def test_oom_falls_back_to_cpu():
+    class OOM(Exception): pass
+    stats={'cpu_fallbacks':0}
+    def gpu(ids): raise OOM()
+    encode=embed.with_cpu_fallback(gpu,lambda ids:[[1.0] for _ in ids],stats,(OOM,))
+    assert encode([1,2])==[[1.0],[1.0]] and stats['cpu_fallbacks']==1
+
+def test_cli_audit_and_distill_are_wired(tmp_path):
+    from pdb_ingest.cli import main
+    import contextlib,io
+    with contextlib.redirect_stderr(io.StringIO()):
+        for cmd in ('audit','distill'):
+            with pytest.raises(SystemExit) as e: main([cmd,'--help'])
+            assert e.value.code==0

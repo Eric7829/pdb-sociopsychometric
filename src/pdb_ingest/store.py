@@ -47,7 +47,7 @@ class Store:
             if not snapshot.complete and existing and existing[0]:
                 c.execute('COMMIT')
                 return
-            for table in ('text_segments','vote_distributions','documents','profiles'):
+            for table in ('text_segments','vote_distributions','documents','profiles','text_spans','reply_context'):
                 c.execute(f'DELETE FROM {table} WHERE profile_num=?',[p.profile_num])
             self_votes = [asdict(v) for d in snapshot.distributions for v in d.evidence]
             c.execute('INSERT INTO profiles VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',

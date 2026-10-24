@@ -27,13 +27,14 @@ def pooled(text,ranges): return [text[a:b] for a,b in ranges]
 
 async def test_markers_and_pooling(tmp_path):
     (text,ranges),=await view(tmp_path,'Because books.')
-    assert text=='[CTX] why INFP? [/CTX] [Q] Q1: Why? [/Q] Because books.' and pooled(text,ranges)==['Because books.']
+    assert text=='[CTX] why ? [/CTX] [Q] Q1: Why? [/Q] Because books.' and pooled(text,ranges)==['Because books.']
 
-async def test_scrub_only_inside_pooled_text(tmp_path):
+async def test_scrub_covers_context_quotes_and_prompts(tmp_path):
+    # Review I2: a bidirectional encoder lets pooled tokens attend to unpooled text, so scrubbing must cover all of it.
     (text,ranges),=await view(tmp_path,'Because INFP books.')
-    assert '[CTX] why INFP? [/CTX]' in text and pooled(text,ranges)==['Because books.']
+    assert 'INFP' not in text and pooled(text,ranges)==['Because books.']
     (raw,ranges),=await view(tmp_path/'raw','Because INFP books.',scrub=False)
-    assert pooled(raw,ranges)==['Because INFP books.']
+    assert raw.count('INFP')==2 and pooled(raw,ranges)==['Because INFP books.']
 
 async def test_mask_prompts_false_pools_prompt(tmp_path):
     (text,ranges),=await view(tmp_path,'Because books.',mask_prompts=False)

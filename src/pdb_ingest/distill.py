@@ -11,12 +11,14 @@ def class_lists(systems=CORE_SYSTEMS):
     lists={'MBTI':list(MBTI_TYPES),'ENNEAGRAM':list(ENNEAGRAM_TYPES),'AP':sorted(AP_TYPES)}
     return {s:lists[s] for s in systems}
 
-def load_targets(conn,systems=CORE_SYSTEMS):
+def load_targets(conn,systems=CORE_SYSTEMS,samples=('top',)):
     """profile_num -> {system: (simplex aligned to class_lists, entropy bits, N)}; only training-eligible heads.
     Returns (targets, dropped) where dropped counts vote mass on labels outside the class list, per system."""
     classes=class_lists(systems); targets={}; dropped={s:0 for s in systems}
-    rows=conn.execute('''SELECT v.profile_num,v.system_name,v.vote_counts_json,v.total_system_votes FROM vote_distributions v
-                         JOIN profiles p USING(profile_num) WHERE p.complete AND v.training_eligible''').fetchall()
+    marks=','.join('?'*len(samples))
+    rows=conn.execute(f'''SELECT v.profile_num,v.system_name,v.vote_counts_json,v.total_system_votes FROM vote_distributions v
+                         JOIN profiles p USING(profile_num) LEFT JOIN crawl_queue q USING(profile_num)
+                         WHERE p.complete AND v.training_eligible AND coalesce(q.sample,'top') IN ({marks})''',list(samples)).fetchall()
     for n,system,counts,total in rows:
         if system not in classes: continue
         counts=json.loads(counts); index={c:i for i,c in enumerate(classes[system])}
@@ -73,6 +75,12 @@ def metrics(P,Q,H,Hhat):
     return {'n':len(P),'kl':sum(kl_rows(P,Q))/len(P),'top1':sum(argmax(p)==argmax(q) for p,q in zip(P,Q))/len(P),
             'entropy_mae':sum(abs(a-b) for a,b in zip(H,Hhat))/len(P),'entropy_spearman':spearman(H,Hhat) if len(P)>2 else float('nan')}
 
+def split_validation(train,seed=0,share=1/7):
+    """Seeded random hold-out of the training fold for early stopping (KFold yields sorted ids)."""
+    import random
+    shuffled=list(train); random.Random(seed).shuffle(shuffled); cut=max(1,int(len(shuffled)*share))
+    return shuffled[:cut],shuffled[cut:]
+
 def cross_validate(X,targets,classes=None,*,folds=5,seed=0,epochs=300,patience=20,lr=1e-3,weight_decay=1e-2,hidden=256,device='cpu'):
     """Out-of-fold predictions for the head model and a train-fold-mean baseline; returns per-system metrics."""
     import torch
@@ -83,7 +91,7 @@ def cross_validate(X,targets,classes=None,*,folds=5,seed=0,epochs=300,patience=2
     for train_idx,test_idx in KFold(folds,shuffle=True,random_state=seed).split(ids):
         torch.manual_seed(seed)
         train=[ids[i] for i in train_idx]; test=[ids[i] for i in test_idx]
-        cut=max(1,len(train)//7); val,fit=train[:cut],train[cut:]
+        val,fit=split_validation(train,seed)
         xf,tf=tensors(fit,X,targets,classes,torch)
         mu,sd=xf.mean(0),xf.std(0)+1e-6
         norm=lambda ids_:((tensors(ids_,X,targets,classes,torch)[0]-mu)/sd).to(device)
@@ -120,7 +128,7 @@ def cross_validate(X,targets,classes=None,*,folds=5,seed=0,epochs=300,patience=2
 
 VIEWS={'main':{'scrub':True,'mask_prompts':True},'unmasked':{'scrub':True,'mask_prompts':False},'raw':{'scrub':False,'mask_prompts':True}}
 
-def run_distill(store,view='main',*,views_fn=None,encoder=None,out_root='data/stage2',folds=5,epochs=300,seed=0):
+def run_distill(store,view='main',*,views_fn=None,encoder=None,out_root='data/stage2',folds=5,epochs=300,seed=0,samples=('top',)):
     """Embed every profile with targets under one encoder view, cross-validate, and write <out_root>/<view>/report.json."""
     import hashlib
     from pathlib import Path
@@ -128,14 +136,14 @@ def run_distill(store,view='main',*,views_fn=None,encoder=None,out_root='data/st
     if views_fn is None:
         from .encoder_text import encoder_view as views_fn
     tokenize,encode,stats=encoder or embed.hf_encoder()
-    targets,dropped=load_targets(store.connection)
+    targets,dropped=load_targets(store.connection,samples=samples)
     X={}
     for n in sorted(targets):
         views=views_fn(store,n,**VIEWS[view])
         sha=hashlib.sha256(json.dumps(views,ensure_ascii=False).encode('utf-8')).hexdigest()
         vec=embed.cached_vector(Path(out_root)/'emb'/view,n,sha,lambda:embed.profile_vector(embed.embed_segments(views,tokenize,encode)))
         if vec is not None: X[n]=vec
-    report={'view':view,'options':VIEWS[view],'targets':len(targets),'embedded':len(X),'dropped_votes_outside_classes':dropped,
+    report={'view':view,'options':VIEWS[view],'samples':list(samples),'targets':len(targets),'embedded':len(X),'dropped_votes_outside_classes':dropped,
             'encoder':{k:v for k,v in stats.items()},'folds':folds,'seed':seed,
             'metrics':cross_validate(X,targets,folds=folds,seed=seed,epochs=epochs)}
     path=Path(out_root)/view/'report.json'; path.parent.mkdir(parents=True,exist_ok=True)

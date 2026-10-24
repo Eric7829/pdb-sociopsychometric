@@ -33,6 +33,14 @@ def main(argv=None):
         sub.add_argument('--capture-dir',type=Path,default=Path('data/run'))
         sub.add_argument('--max-comments',type=int,help='Fetch reply threads only for the first N top-level comments (pinned first); default: all')
         sub.add_argument('--headless',action='store_true')
+    aud=subs.add_parser('audit',help='Phase 5 audits (bundling, modality, inventory) to JSON')
+    aud.add_argument('--output',type=Path,default=Path('data/audits/report.json'))
+    aud.add_argument('--samples',nargs='+',default=['top'],help="crawl_queue sample tags to include (default: top)")
+    aud.add_argument('--permutations',type=int,default=1000)
+    dis=subs.add_parser('distill',help='Stage 2 baseline: embed with ModernBERT-base and cross-validate (needs the ml extra)')
+    dis.add_argument('--view',choices=('main','unmasked','raw'),default='main')
+    dis.add_argument('--samples',nargs='+',default=['top'])
+    dis.add_argument('--out',type=Path,default=Path('data/stage2'))
     ann=subs.add_parser('annotate',help='Backfill span annotations and reply context from captures (offline)')
     ann.add_argument('--capture-dir',type=Path,required=True)
     rep=subs.add_parser('replay'); rep.add_argument('directory',type=Path)
@@ -72,6 +80,15 @@ def main(argv=None):
         with Store(args.db) as store:
             if args.command=='export':
                 print(json.dumps({'exported':store.export_jsonl(args.output)})); return 0
+            if args.command=='audit':
+                from .audits import run_audits
+                result=run_audits(store.connection,permutations=args.permutations,samples=tuple(args.samples))
+                args.output.parent.mkdir(parents=True,exist_ok=True); args.output.write_text(json.dumps(result,indent=1),encoding='utf-8')
+                print(json.dumps({'output':str(args.output),'profiles':result['profiles']})); return 0
+            if args.command=='distill':
+                from .distill import run_distill
+                report=run_distill(store,args.view,out_root=args.out,samples=tuple(args.samples))
+                print(json.dumps({'view':args.view,'embedded':report['embedded'],'metrics':report['metrics']})); return 0
             if args.command=='annotate':
                 stats=annotate(store,args.capture_dir)
                 print(json.dumps(stats)); return 1 if stats['raw_text_mismatches'] else 0

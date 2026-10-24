@@ -40,6 +40,15 @@ def profile_vector(segment_results):
         total=list(vec) if total is None else [a+b for a,b in zip(total,vec)]; count+=n
     return [x/count for x in total] if count else None
 
+def with_cpu_fallback(gpu,cpu,stats,oom_errors):
+    """encode(ids) that retries one window on CPU when the GPU path raises an out-of-memory error."""
+    def encode(ids):
+        try: return gpu(ids)
+        except oom_errors:
+            stats['cpu_fallbacks']+=1
+            return cpu(ids)
+    return encode
+
 def hf_encoder(model_name=DEFAULT_MODEL,device=None):
     """(tokenize, encode, stats) for a Hugging Face encoder; CUDA fp16 when available, per-window CPU fallback on OOM."""
     import torch
@@ -54,14 +63,12 @@ def hf_encoder(model_name=DEFAULT_MODEL,device=None):
     def run(m,dev,ids):
         x=torch.tensor([[tok.cls_token_id]+list(ids)+[tok.sep_token_id]],device=dev)
         with torch.no_grad(): return m(input_ids=x).last_hidden_state[0,1:-1].float().cpu().tolist()
-    def encode(ids):
+    def on_cpu(ids):
         nonlocal cpu_model
-        try: return run(model,device,ids)
-        except torch.cuda.OutOfMemoryError:
-            torch.cuda.empty_cache(); stats['cpu_fallbacks']+=1
-            cpu_model=cpu_model or AutoModel.from_pretrained(model_name,torch_dtype=torch.float32).eval()
-            return run(cpu_model,'cpu',ids)
-    return tokenize,encode,stats
+        torch.cuda.empty_cache()
+        cpu_model=cpu_model or AutoModel.from_pretrained(model_name,torch_dtype=torch.float32).eval()
+        return run(cpu_model,'cpu',ids)
+    return tokenize,with_cpu_fallback(lambda ids:run(model,device,ids),on_cpu,stats,(torch.cuda.OutOfMemoryError,)),stats
 
 def cached_vector(cache_dir,profile_num,corpus_sha,compute):
     """Load data/stage2/emb/<view>/<profile>_<sha>.npy if present, else compute() and save; None results are not cached."""

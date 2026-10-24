@@ -65,3 +65,10 @@ async def test_later_comment_quoting_the_creator_does_not_mark_creator_text(tmp_
         spans=store.connection.execute("select kind,start_pos,end_pos from text_spans where source_ref='11' order by ordinal").fetchall()
     text=R['comment']
     assert [(k,text[a:b]) for k,a,b in spans]==[('QUOTE','"you are clearly a sensor because you love details"'),('PROSE','is wrong, I daydream.')]
+
+async def test_resaving_snapshot_clears_stale_annotations(tmp_path):
+    store=await build(tmp_path)
+    with store:
+        annotate(store,tmp_path/'run')
+        store.save_snapshot(store.load_snapshot(1))
+        assert [store.connection.execute(f'select count(*) from {t}').fetchone()[0] for t in ('text_spans','reply_context')]==[0,0]

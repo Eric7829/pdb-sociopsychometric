@@ -63,3 +63,17 @@ async def test_run_audits_on_store(tmp_path):
     assert result['inventory']=={'skipped':'no complete stage3-v1 runs'}
     assert 'MBTI' in result['modality']
     json.dumps(result)
+
+async def test_samples_filter_excludes_supplemental_profiles(tmp_path):
+    from pdb_ingest.store import Store
+    from pdb_ingest.models import ProfileRef
+    from test_pipeline import Client,Docs
+    from pdb_ingest.pipeline import process_profile
+    from pdb_ingest import distill
+    with Store(tmp_path/'s.duckdb') as store:
+        for n in (1,2): await process_profile(Client(),store,Docs(),n)
+        store.enqueue([ProfileRef(2,'u')],'es')
+        assert set(audits.load_profiles(store.connection))=={1}
+        assert set(audits.load_profiles(store.connection,samples=('top','es')))=={1,2}
+        assert set(distill.load_targets(store.connection)[0])=={1}
+        assert set(distill.load_targets(store.connection,samples=('top','es'))[0])=={1,2}

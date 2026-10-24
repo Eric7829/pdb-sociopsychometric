@@ -106,10 +106,13 @@ def jungian_to_mbti(label):
     jp=('J' if dom in judging else 'P') if att=='E' else ('P' if dom in judging else 'J')
     return att+sn+tf+jp
 
-def load_profiles(c):
-    """profile_num -> {'dist': {system: adjusted counts}, 'eligible': set, 'self_votes': {system: label}, 'ramble': float|None}."""
+def load_profiles(c,samples=('top',)):
+    """profile_num -> {'dist': {system: adjusted counts}, 'eligible': set, 'self_votes': {system: label}, 'ramble': float|None}.
+    samples: crawl_queue sample tags to include (supplemental samples such as type-selected 'es' bias the marginals)."""
     out={}
-    for n,ramble in c.execute('SELECT profile_num,ramble_word_ratio FROM profiles WHERE complete').fetchall():
+    marks=','.join('?'*len(samples))
+    for n,ramble in c.execute(f'''SELECT p.profile_num,p.ramble_word_ratio FROM profiles p LEFT JOIN crawl_queue q USING(profile_num)
+                                  WHERE p.complete AND coalesce(q.sample,'top') IN ({marks})''',list(samples)).fetchall():
         out[n]={'dist':{},'eligible':set(),'n':{},'entropy':{},'self_votes':{},'ramble':ramble}
     for n,system,counts,total,h,eligible,evidence in c.execute('''SELECT profile_num,system_name,vote_counts_json,total_system_votes,
             shannon_entropy,training_eligible,evidence_json FROM vote_distributions''').fetchall():
@@ -196,7 +199,7 @@ def inventory_audit(profiles,c,prompt_version='stage3-v1'):
     return {'prompt_version':prompt_version,'profiles':len(agent),'agreement':agreement,'crowd_vs_ipip':convergent,'agreeableness_facets':facets,
             'caveat':'Agent read the raw corpus, which can contain self-typing jargon; agreement with self-votes is partly echo.'}
 
-def run_audits(c,*,permutations=1000,prompt_version='stage3-v1'):
-    profiles=load_profiles(c)
-    return {'profiles':len(profiles),'permutations':permutations,'bundling':bundling_audit(profiles,permutations),
+def run_audits(c,*,permutations=1000,prompt_version='stage3-v1',samples=('top',)):
+    profiles=load_profiles(c,samples)
+    return {'profiles':len(profiles),'samples':list(samples),'permutations':permutations,'bundling':bundling_audit(profiles,permutations),
             'modality':modality_audit(profiles,permutations),'inventory':inventory_audit(profiles,c,prompt_version)}
