@@ -117,3 +117,27 @@ def cross_validate(X,targets,classes=None,*,folds=5,seed=0,epochs=300,patience=2
         if not d['P']: result[s]={'n':0}; continue
         result[s]={'model':metrics(d['P'],d['Q'],d['H'],d['Hhat']),'baseline':metrics(d['P'],d['Qb'],d['H'],d['Hb'])}
     return result
+
+VIEWS={'main':{'scrub':True,'mask_prompts':True},'unmasked':{'scrub':True,'mask_prompts':False},'raw':{'scrub':False,'mask_prompts':True}}
+
+def run_distill(store,view='main',*,views_fn=None,encoder=None,out_root='data/stage2',folds=5,epochs=300,seed=0):
+    """Embed every profile with targets under one encoder view, cross-validate, and write <out_root>/<view>/report.json."""
+    import hashlib
+    from pathlib import Path
+    from . import embed
+    if views_fn is None:
+        from .encoder_text import encoder_view as views_fn
+    tokenize,encode,stats=encoder or embed.hf_encoder()
+    targets,dropped=load_targets(store.connection)
+    X={}
+    for n in sorted(targets):
+        views=views_fn(store,n,**VIEWS[view])
+        sha=hashlib.sha256(json.dumps(views,ensure_ascii=False).encode('utf-8')).hexdigest()
+        vec=embed.cached_vector(Path(out_root)/'emb'/view,n,sha,lambda:embed.profile_vector(embed.embed_segments(views,tokenize,encode)))
+        if vec is not None: X[n]=vec
+    report={'view':view,'options':VIEWS[view],'targets':len(targets),'embedded':len(X),'dropped_votes_outside_classes':dropped,
+            'encoder':{k:v for k,v in stats.items()},'folds':folds,'seed':seed,
+            'metrics':cross_validate(X,targets,folds=folds,seed=seed,epochs=epochs)}
+    path=Path(out_root)/view/'report.json'; path.parent.mkdir(parents=True,exist_ok=True)
+    path.write_text(json.dumps(report,indent=1),encoding='utf-8')
+    return report

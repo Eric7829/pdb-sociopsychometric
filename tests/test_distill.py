@@ -87,3 +87,19 @@ def test_model_beats_baseline_on_learnable_synthetic():
         X[n]=x; targets[n]={'MBTI':(p,-sum(v*__import__('math').log2(v) for v in p if v),30)}
     r=distill.cross_validate(X,targets,classes,epochs=400,patience=40,hidden=64)['MBTI']
     assert r['model']['kl']<r['baseline']['kl']*.6 and r['model']['top1']>r['baseline']['top1']
+
+def test_run_distill_end_to_end_with_fakes(tmp_path):
+    pytest.importorskip('torch'); pytest.importorskip('sklearn'); pytest.importorskip('numpy')
+    import random
+    rng=random.Random(1); types=['INFP','INTP','ENFP','ISTJ']
+    with Store(tmp_path/'d.duckdb') as store:
+        for n in range(1,61):
+            seed(store,n,'MBTI',{types[n%4]:15,'ENTJ':rng.randint(0,3)})
+        views=lambda store_,n,**kw:[(f'profile kind {n%4} words',[(0,10)])]
+        tokenize=lambda text:([len(w) for w in text.split()],[(0,7),(8,12),(13,14),(15,20)])
+        encode=lambda ids:[[float(i),float(i%3)] for i in ids]
+        report=distill.run_distill(store,'main',views_fn=views,encoder=(tokenize,encode,{'device':'cpu','cpu_fallbacks':0}),
+                                   out_root=tmp_path/'stage2',folds=3,epochs=50)
+    assert report['view']=='main' and report['embedded']==60 and report['targets']==60
+    assert set(report['metrics'])=={'MBTI','ENNEAGRAM','AP'} and report['metrics']['ENNEAGRAM']=={'n':0}
+    assert (tmp_path/'stage2'/'main'/'report.json').exists() and list((tmp_path/'stage2'/'emb'/'main').glob('*.npy'))
