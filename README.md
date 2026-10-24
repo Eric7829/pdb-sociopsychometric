@@ -122,6 +122,16 @@ Do not use `typesafe/jev-router`. Despite the name, it forwards each request to 
 
 Jev's accuracy rises with text length, from 17% for profiles under 400 words to 49% for those over 4,600, while ours stays flat at about 18–20%. So long profiles are not capped.
 
+The 16-type head is fitted with TF-IDF and the scaler trained once on unique profiles, then weighted rows per type. Jev's probabilities are first rescaled to the crowd's type frequencies, which removes its ENFP/E skew.
+
+`tools/type_ablation.py` (results in `data/stage2/type_ablation.json`) scores each choice on full profiles and on 250-word crops of pinned comments and docs, which mimic a pasted self-description:
+- **Short texts are much harder.** 16-type exact drops from about 19% to 12–14%, and agent-IPIP Spearman r from 0.49 to 0.27. The panel shows these short-text numbers for inputs under 600 words.
+- **Letter weight depends on length.** With the letter weight at 0.4, the 16-type head contradicts a letter head that is at least 70% sure in 40% of crops. So the weight runs from 0.8 at 300 words or fewer down to 0.4 at 2,000 words or more.
+- **Small effects:** fixing the duplicated-row fit, L2-normalising profile vectors and the prior correction each change exact accuracy by under one point. Class-balancing the 16-type head raises macro-F1 (0.146 vs 0.121) but lowers exact accuracy, so it is off.
+- **Self-reported type:** the creator's own profile badge, available for 498 eligible profiles. The crowd's modal type matches it 70% exactly (82–89% per letter), so the crowd is a reasonable proxy for self-perceived type. Text models predict it no better than they predict the crowd (58–59% mean balanced letter accuracy), so no separate self-type head was added.
+
+The encoder scrubber also removes Socionics codes, SLOAN codes and function-position words (`encoder_text.EXTRA_JARGON`). Stored `scrubbed_text` is unchanged. Jev's long-profile accuracy did not drop under the stricter scrubbing: 45% before and 48% after, on 100 profiles over 2,500 words (`tools/jev_scrub_check.py`).
+
 ## Encoder comparisons
 
 `tools/run_stage2.py --model M --samples top,top2 main` embeds and caches profiles under `data/stage2/emb/<model>/main`. Then:

@@ -16,7 +16,13 @@ MBTI=[a+b+c+d for a in 'EI' for b in 'SN' for c in 'TF' for d in 'JP']
 LETTERS=[('E','I'),('S','N'),('T','F'),('J','P')]
 SAMPLE_JOIN="LEFT JOIN crawl_queue q ON q.profile_num=p.profile_num"
 JEV_LABELS=Path('data/stage2/llm/typesafe--jev-1.14')
-TYPE_ALPHA,W_LETTERS=.5,.4  # 16-type head targets alpha*Jev+(1-alpha)*crowd; pooled with letters at weight W_LETTERS (tools/distill_jev.py)
+TYPE_ALPHA=.5  # 16-type head targets alpha*Jev+(1-alpha)*crowd (Jev rescaled to crowd type frequencies)
+ABLATION=Path('data/stage2/type_ablation.json')
+
+def letter_weight(np,n_words):
+    """Weight of the letter heads in the pool: 0.8 at <=300 words, 0.4 at >=2000 (tools/type_ablation.py: on 250-word texts
+    the 16-type head contradicts a >=70%-sure letter head 37-40% of the time at 0.4, under 1% at 0.8)."""
+    x=np.log10(np.clip(np.asarray(n_words,dtype=float),300,2000)/300)/np.log10(2000/300); return .8-.4*x
 
 def jev_probs(n):
     f=JEV_LABELS/f'{n}.json'
@@ -32,19 +38,29 @@ def letters_to_types(np,P):
     return out
 
 def pool(np,A,B,w):
+    w=np.reshape(w,(-1,1)) if np.ndim(w) else w
     L=w*np.log(np.clip(A,1e-9,1))+(1-w)*np.log(np.clip(B,1e-9,1)); L-=L.max(1,keepdims=True); E=np.exp(L)
     return E/E.sum(1,keepdims=True)
 
-def soft_fit(np,model,X,targets):
-    """Multinomial fit on soft targets: one row per (profile, type) weighted by the target probability."""
-    rows=[(i,j,w) for i,t in enumerate(targets) for j,w in enumerate(t) if w>1e-3]; idx=[i for i,_,_ in rows]
-    Xs=[X[i] for i in idx] if isinstance(X,list) else X[idx]
-    return model.fit(Xs,np.array(MBTI)[[j for _,j,_ in rows]],**{f'{model.steps[-1][0]}__sample_weight':np.array([w for _,_,w in rows])})
+def soft_fit(np,pre,clf,X,targets,class_weight=None):
+    """Multinomial fit on soft targets. pre (TF-IDF or scaler) is fitted once on the unique profiles, then each (profile, type)
+    row with target > 1e-3 is weighted by that target (times class_weight[type] if given). Returns (pre, clf)."""
+    Z=pre.fit_transform(X); cw=np.ones(16) if class_weight is None else class_weight
+    rows=[(i,j,w*cw[j]) for i,t in enumerate(targets) for j,w in enumerate(t) if w>1e-3]
+    clf.fit(Z[[i for i,_,_ in rows]],np.array(MBTI)[[j for _,j,_ in rows]],sample_weight=np.array([w for _,_,w in rows]))
+    return pre,clf
 
 def type_probs(np,models,D,E):
     T=np.zeros((len(E),16))
-    for model,X in zip(models,(D,E)): T[:,[MBTI.index(c) for c in model.classes_]]+=model.predict_proba(X)/2
+    for (pre,clf),X in zip(models,(D,E)): T[:,[MBTI.index(c) for c in clf.classes_]]+=clf.predict_proba(pre.transform(X))/2
     return (T+1e-4)/(T+1e-4).sum(1,keepdims=True)
+
+def prior_correct(np,J,prior):
+    """Rescale teacher probabilities so their mean matches prior (removes the teacher's type-frequency skew)."""
+    R=J*(np.asarray(prior)/np.clip(J.mean(0),1e-6,None)); return R/R.sum(1,keepdims=True)
+
+def l2(np,X):
+    X=np.asarray(X,dtype=float); n=np.linalg.norm(X,axis=-1,keepdims=True); return X/np.where(n==0,1,n)
 
 def modal(counts):
     return max(counts,key=lambda k:(counts[k],k)) if counts and sum(counts.values()) else None
@@ -111,7 +127,7 @@ class Assessor:
         ids=[n for n in docs if vecs[n] is not None and words(docs[n])>0]
         alphas=np.logspace(-1,4,12)
         tfidf=lambda:TfidfVectorizer(min_df=3,max_features=50000,sublinear_tf=True)
-        def data(sub): return [docs[n] for n in sub],np.array([vecs[n] for n in sub])
+        def data(sub): return [docs[n] for n in sub],l2(np,[vecs[n] for n in sub])
         cv=KFold(folds,shuffle=True,random_state=0)
         reg_ids=[n for n in ids if 'ipip' in rows[n]]; D,E=data(reg_ids)
         self.ipip={}; self.ipip_cv={}; norms=load_ipip().load_norms()['scales']
@@ -136,17 +152,21 @@ class Assessor:
         def fit_types(sub,letter_oof):
             """16-type head distilled from Jev (soft targets), pooled with the letter heads; CV uses out-of-fold letters too."""
             D,E=data(sub); y=np.array([modal(rows[n]['mbti_counts']) for n in sub]); onehot=np.eye(16)[[MBTI.index(t) for t in y]]
-            J=[jev_probs(n) for n in sub]; n_jev=sum(j is not None for j in J)
-            target=np.array([TYPE_ALPHA*np.array(j)+(1-TYPE_ALPHA)*o if j is not None else o for j,o in zip(J,onehot)])
-            new=lambda:(make_pipeline(tfidf(),LogisticRegression(C=4,max_iter=3000)),make_pipeline(StandardScaler(),LogisticRegression(C=.3,max_iter=3000)))
+            J=[jev_probs(n) for n in sub]; n_jev=sum(j is not None for j in J); has=np.array([j is not None for j in J])
+            J=np.array([j if j is not None else o for j,o in zip(J,onehot)])
+            def targets(tr):
+                """Soft targets for training rows tr; Jev rescaled to the training crowd's type frequencies."""
+                Jc=J[tr].copy(); Jc[has[tr]]=prior_correct(np,J[tr][has[tr]],onehot[tr].mean(0)+1e-3)
+                return np.where(has[tr,None],TYPE_ALPHA*Jc+(1-TYPE_ALPHA)*onehot[tr],onehot[tr])
+            new=lambda:((tfidf(),LogisticRegression(C=4,max_iter=3000)),(StandardScaler(),LogisticRegression(C=.3,max_iter=3000)))
             P=np.zeros((len(sub),16))
             for tr,te in cv.split(sub):
-                ms=[soft_fit(np,m,X,target[tr]) for m,X in zip(new(),([D[i] for i in tr],E[tr]))]
+                t=targets(tr); ms=[soft_fit(np,pre,clf,X,t) for (pre,clf),X in zip(new(),([D[i] for i in tr],E[tr]))]
                 P[te]=type_probs(np,ms,[D[i] for i in te],E[te])
-            P=pool(np,letters_to_types(np,letter_oof),P,W_LETTERS); idx=np.array([MBTI.index(t) for t in y])
+            P=pool(np,letters_to_types(np,letter_oof),P,letter_weight(np,[words(d) for d in D])); idx=np.array([MBTI.index(t) for t in y])
             cv_={'exact':float(np.mean(P.argmax(1)==idx)),'top3':float(np.mean([i in np.argsort(-p)[:3] for p,i in zip(P,idx)])),
                  'chance':max(Counter(y).values())/len(y),'n':len(y),'jev_labelled':n_jev}
-            return [soft_fit(np,m,X,target) for m,X in zip(new(),(D,E))],cv_
+            t=targets(np.arange(len(sub))); return [soft_fit(np,pre,clf,X,t) for (pre,clf),X in zip(new(),(D,E))],cv_
         def fit_cores(label):
             """Multiclass Enneagram-core head; (None, n, reason) when the data cannot support it."""
             sub=[n for n in ids if label(rows[n])]; D,E=data(sub); y=np.array([label(rows[n])[0] for n in sub]); counts=Counter(y)
@@ -161,6 +181,8 @@ class Assessor:
         crowd_core=lambda r:modal(r['ennea_counts']) if 'ennea_counts' in r else None
         self.letters,n_letters,type_ids,letter_oof=fit_letters(crowd_type)
         self.types,self.types_cv=fit_types(type_ids,letter_oof)
+        a=json.loads(ABLATION.read_text(encoding='utf-8'))['A'] if ABLATION.exists() else {}   # 250-word-crop accuracy, if measured
+        self.short_cv={'type':a.get('l2/crop/fixed+prior/w0.8'),'ipip_spearman':(a.get('l2/ipip_mean_spearman') or {}).get('crop')} if a else None
         self.ennea,n_ennea,self.ennea_reason=fit_cores(crowd_core)
         self.agent_letters,n_agent_letters,_,_=fit_letters(lambda r:r.get('form_m'))
         self.agent_ennea,n_agent_ennea,self.agent_ennea_reason=fit_cores(lambda r:r.get('agent_ennea'))
@@ -173,7 +195,7 @@ class Assessor:
     def assess(self,text):
         np=self.np; scrubbed=clean(text,True); n_words=words(scrubbed)
         if not n_words: return {'error':'No words left after removing typology labels.'}
-        D=[scrubbed]; E=np.array([self.embed_fn([(scrubbed,[(0,len(scrubbed))])])])
+        D=[scrubbed]; E=l2(np,[self.embed_fn([(scrubbed,[(0,len(scrubbed))])])])
         big5={}
         for k,(mt,me,norm) in self.ipip.items():
             raw=float((mt.predict(D)[0]+me.predict(E)[0])/2); rmse=self.ipip_cv[k]['rmse']
@@ -188,8 +210,8 @@ class Assessor:
             return {'cores':names,'probabilities':[float(x) for x in probs],'cv':cv_}
         crowd_letters,crowd_type=letters(self.letters); agent_letters,agent_type=letters(self.agent_letters)
         L=np.array([[crowd_letters[a+b]['p_first'] if a+b in crowd_letters else .5 for a,b in LETTERS]])
-        P=pool(np,letters_to_types(np,L),type_probs(np,self.types,D,E),W_LETTERS)[0]; top=np.argsort(-P)[:3]
-        mbti_type={'top':[{'type':MBTI[i],'p':float(P[i])} for i in top],'cv':self.types_cv}
+        P=pool(np,letters_to_types(np,L),type_probs(np,self.types,D,E),letter_weight(np,n_words))[0]; top=np.argsort(-P)[:3]
+        mbti_type={'top':[{'type':MBTI[i],'p':float(P[i])} for i in top],'cv':self.types_cv,'short_text_cv':self.short_cv}
         return {'words':n_words,'short_text':n_words<150,'big5':big5,'mbti_letters':crowd_letters,'mbti':MBTI[top[0]],'mbti_type':mbti_type,
                 'enneagram':cores(self.ennea,self.ennea_reason),'agent_mbti_letters':agent_letters,'agent_mbti':agent_type,
                 'agent_enneagram':cores(self.agent_ennea,self.agent_ennea_reason),'trained_on':self.trained_on}

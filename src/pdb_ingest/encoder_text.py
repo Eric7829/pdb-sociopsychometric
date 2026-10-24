@@ -2,8 +2,13 @@
 import re
 from .text import JARGON,segment_spans
 
+# Encoder-only extras (stored scrubbed_text is unchanged): Socionics codes, SLOAN codes, function-position words.
+SOCIONICS='ILE|SEI|ESE|LII|EIE|LSI|SLE|IEI|SEE|ILI|LIE|ESI|LSE|EII|IEE|SLI'
+EXTRA_JARGON=re.compile(r'(?<!\w)(?:'+SOCIONICS+r'|[RSrs][CLcl][OUou][AEae][INin]|(?i:dom|aux|tert|auxiliary|tertiary|polr|blindspot)|'
+                        r'(?i:(?:dominant|inferior|demon|trickster|critic|nemesis)\s+function))(?!\w)')
+
 def clean(piece,scrub):
-    return re.sub(r'\s+',' ',JARGON.sub('',piece) if scrub else piece).strip()
+    return re.sub(r'\s+',' ',EXTRA_JARGON.sub('',JARGON.sub('',piece)) if scrub else piece).strip()
 
 def encoder_view(store,profile_num,*,scrub=True,with_context=True,mask_prompts=True):
     """[(text, pooled_ranges)] in snapshot segment order. Prompts are wrapped [Q]..[/Q], quotes [QUOTE]..[/QUOTE], reply

@@ -207,7 +207,8 @@ async function assess(){
     $('warn').innerHTML=r.short_text?`<div class="warn">Only ${r.words} words after removing typology labels. The models were trained on profiles with hundreds to thousands of words, so treat short-text results as rough.</div>`:'';
     rangeRows('r-big5',Object.values(r.big5));
     $('r-type').textContent=r.mbti;letterRows('r-mbti',r.mbti_letters);
-    const mt=r.mbti_type;$('r-type-top').textContent=`Top 3: ${mt.top.map(x=>`${x.type} ${Math.round(x.p*100)}%`).join(' · ')}. Cross-validated: right type ${Math.round(mt.cv.exact*100)}% of the time, in the top 3 ${Math.round(mt.cv.top3*100)}% (always guessing the commonest type: ${Math.round(mt.cv.chance*100)}%).`;
+    const mt=r.mbti_type,sc=mt.short_text_cv;
+    if(sc&&sc.type&&r.words<600)$('warn').innerHTML+=`<div class="warn">Accuracy on short texts is much lower than the full-profile numbers shown in each card. On 250-word excerpts of held-out profiles: right type ${Math.round(sc.type.exact*100)}%, in the top 3 ${Math.round(sc.type.top3*100)}%; Big Five rank correlation ${sc.ipip_spearman.toFixed(2)} (vs about 0.49 on full profiles). Longer texts help.</div>`;$('r-type-top').textContent=`Top 3: ${mt.top.map(x=>`${x.type} ${Math.round(x.p*100)}%`).join(' · ')}. Cross-validated: right type ${Math.round(mt.cv.exact*100)}% of the time, in the top 3 ${Math.round(mt.cv.top3*100)}% (always guessing the commonest type: ${Math.round(mt.cv.chance*100)}%).`;
     $('r-agent-type').textContent=r.agent_mbti;letterRows('r-agent-mbti',r.agent_mbti_letters);
     enneaCard('r-ennea',r.enneagram,'voters');enneaCard('r-agent-ennea',r.agent_enneagram,'the agent');
   }catch(e){$('status').textContent='Request failed: '+e.message}
