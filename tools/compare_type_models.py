@@ -46,15 +46,20 @@ def main():
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
     p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--db',type=Path,required=True); args=p.parse_args()
+    p.add_argument('--db',type=Path,required=True)
+    p.add_argument('--target',choices=('crowd','agent'),default='crowd',help="crowd's modal type, or the agent's MBTI Form M result (stage3-v1)")
+    p.add_argument('--both-only',action='store_true',help='Restrict to profiles that have both a crowd type and an agent result')
+    p.add_argument('--output',type=Path,default=None)
+    args=p.parse_args()
     store=readonly_store(args.db); rows=panel.load_rows(store.connection)
     cache=Path('data/stage2/emb/intfloat--multilingual-e5-small/main'); docs={}; vecs={}
     for n,r in rows.items():
-        if 'mbti_counts' not in r: continue
+        if args.both_only and not ('mbti_counts' in r and r.get('form_m')): continue
+        if (args.target=='crowd' and 'mbti_counts' not in r) or (args.target=='agent' and not r.get('form_m')): continue
         v=encoder_view(store,n); sha=hashlib.sha256(json.dumps(v,ensure_ascii=False).encode('utf-8')).hexdigest()
         f=cache/f'{n}_{sha[:16]}.npy'
         if f.exists(): docs[n]=' '.join(t[a:b] for t,rs in v for a,b in rs); vecs[n]=np.load(f)
-    ids=sorted(docs); y=np.array([panel.modal(rows[n]['mbti_counts']) for n in ids])
+    ids=sorted(docs); y=np.array([panel.modal(rows[n]['mbti_counts']) if args.target=='crowd' else rows[n]['form_m'] for n in ids])
     D=np.array([docs[n] for n in ids],dtype=object); E=np.array([vecs[n] for n in ids])
     tf=lambda:TfidfVectorizer(min_df=3,max_features=50000,sublinear_tf=True)
     oof={k:np.zeros((len(ids),16)) for k in ('letters_balanced','letters','type')}
@@ -74,14 +79,14 @@ def main():
             model.fit(Xtr,y[train]); pr=model.predict_proba(Xte); cols=[MBTI_TYPES.index(c) for c in model.classes_]
             T[:,cols]+=pr/2
         oof['type'][test]=(T+1e-4)/(T+1e-4).sum(1,keepdims=True)
-    res={'profiles':len(ids),'type_counts':{t:int((y==t).sum()) for t in MBTI_TYPES},
+    res={'target':args.target,'both_only':args.both_only,'profiles':len(ids),'type_counts':{t:int((y==t).sum()) for t in MBTI_TYPES},
          'commonest_baseline':float(np.mean(y==max(set(y),key=list(y).count)))}
     for k,P in oof.items(): res[k]=evaluate(P,y)
     grid=[round(w,1) for w in np.arange(0,1.01,.1)]
     blends={w:evaluate(pool(oof['letters'],oof['type'],w),y) for w in grid}
     best=min(grid,key=lambda w:blends[w]['log_loss']); res['blend']={'w_letters':best,**blends[best]}
     res['blend_grid']={str(w):{k:round(v,3) for k,v in blends[w].items()} for w in grid}
-    Path('data/stage2/type_models.json').write_text(json.dumps(res,indent=1),encoding='utf-8')
+    (args.output or Path(f'data/stage2/type_models_{args.target}{"_both" if args.both_only else ""}.json')).write_text(json.dumps(res,indent=1),encoding='utf-8')
     print(json.dumps({k:v for k,v in res.items() if k not in ('blend_grid','type_counts')},indent=1))
 
 if __name__=='__main__': main()
