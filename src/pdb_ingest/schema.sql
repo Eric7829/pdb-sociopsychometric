@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS crawl_queue (
 ALTER TABLE crawl_queue ADD COLUMN IF NOT EXISTS discovery_rank BIGINT;
 ALTER TABLE crawl_queue ADD COLUMN IF NOT EXISTS unavailable BOOLEAN DEFAULT FALSE;
 UPDATE crawl_queue SET unavailable=FALSE WHERE unavailable IS NULL;
+ALTER TABLE crawl_queue ADD COLUMN IF NOT EXISTS sample TEXT DEFAULT 'top';
+UPDATE crawl_queue SET sample='top' WHERE sample IS NULL;
 CREATE TABLE IF NOT EXISTS crawl_checkpoints (
  stream TEXT PRIMARY KEY, token TEXT, complete BOOLEAN NOT NULL
 );

@@ -134,3 +134,29 @@ async def test_unavailable_profiles_are_replaced_in_listing_order(tmp_path):
         assert [r[0] for r in store.connection.execute('select profile_num from crawl_queue order by discovery_rank').fetchall()]==[100,99,98,97,96,95]
         assert stats['usable']==5 and stats['unavailable']==1 and stats['scope_complete']
         assert (await run_crawl(client,store,Docs(),None,max_profiles=5))['processed']==0 and client.calls==[0,2,4,4]
+
+def test_parse_listing_keeps_consensus_type():
+    from pdb_ingest.adapters import parse_listing
+    page=parse_listing({'profiles':[{'id':5,'personality_type':'ESTP 7w8'},{'id':6}]},0,100)
+    assert [r.personality_type for r in page.items]==['ESTP 7w8',None]
+
+async def test_type_filtered_supplement_counts_assessable_profiles(tmp_path):
+    words={1:30,2:30,3:2,4:30,5:30,6:30}
+    types={1:'INFP 4w5',2:'ESTP 7w8',3:'ESFJ 2w1',4:'INTJ 5w6',5:'ESFP 7w6',6:'ESTJ 1w2'}
+    class Typed(Client):
+        calls=[]
+        async def listing(self,token):
+            offset=int(token or 0); self.calls.append(offset)
+            ids=[offset+1,offset+2]
+            return Page([ProfileRef(n,'u',types.get(n)) for n in ids if n in types],str(offset+2),offset+2>=6)
+        async def comments(self,n,token):
+            return Page([Comment(f'c{n}','42','owner',' '.join(['word']*words[n]),True)],None,True)
+    with Store(tmp_path/'sup.duckdb') as store:
+        store.checkpoint('scope','500',True)
+        stats=await run_crawl(Typed(),store,Docs(),None,max_profiles=2,sample='es',type_filter=r'^ES[TF][JP]\b',min_words=10)
+        rows=store.connection.execute('select profile_num,sample from crawl_queue order by discovery_rank').fetchall()
+        assert rows==[(2,'es'),(3,'es'),(5,'es')]
+        assert stats['usable']==2 and stats['scope_complete']
+        assert store.load_checkpoint('scope')==('500',True) and store.load_checkpoint('scope:es')==('2',True)
+        with pytest.raises(ValueError,match='max_profiles'):
+            await run_crawl(Typed(),store,Docs(),None,max_profiles=3,sample='es',type_filter=r'^ES[TF][JP]\b',min_words=10)

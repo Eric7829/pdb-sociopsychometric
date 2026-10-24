@@ -29,6 +29,7 @@ class Page(Generic[T]):
 class ProfileRef:
     profile_num: int
     url: str
+    personality_type: str | None = None  # listing consensus label, e.g. 'ESTP 7w8'
 
 @dataclass
 class Profile:

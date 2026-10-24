@@ -77,27 +77,30 @@ async def process_profile(client,store,docs_client,profile_num,max_comments=None
     store.save_snapshot(snapshot)
     return snapshot.complete
 
-async def run_crawl(client,store,docs_client,limit,*,max_profiles=500,max_comments=None):
+async def run_crawl(client,store,docs_client,limit,*,max_profiles=500,max_comments=None,sample='top',type_filter=None,min_words=None):
+    """Crawl the listing in order. sample/type_filter/min_words define a supplemental sample (e.g. 'es': ES[TF][JP] profiles with
+    >=200 corpus words) with its own scope, checkpoints and queue tag; the default 'top' sample counts usable profiles."""
     if limit is not None and limit<=0: raise ValueError('limit must be positive')
     if max_profiles<=0: raise ValueError('max_profiles must be positive')
-    old_scope,_=store.load_checkpoint('scope')
-    if old_scope is not None and old_scope!=str(max_profiles):
-        raise ValueError('Use the same max_profiles when resuming, or start a new database')
-    store.checkpoint('scope',str(max_profiles),True)
-    # Older databases have no comment scope; they were crawled without a cap.
-    old_comments,_=store.load_checkpoint('comment_scope')
-    comment_scope=str(max_comments or 'all')
-    if old_comments is not None and old_comments!=comment_scope:
-        raise ValueError('Use the same max_comments when resuming, or start a new database')
-    store.checkpoint('comment_scope',comment_scope,True)
-    listing_sort=getattr(client,'sort',None) or 'hot'
-    old_sort,_=store.load_checkpoint('listing_sort')
-    if old_sort is not None and old_sort!=listing_sort:
-        raise ValueError('Use the same listing sort when resuming, or start a new database')
-    store.checkpoint('listing_sort',listing_sort,True)
+    key=lambda k:k if sample=='top' else f'{k}:{sample}'
+    pattern=re.compile(type_filter) if type_filter else None
+    for name,value in ((key('scope'),str(max_profiles)),('comment_scope',str(max_comments or 'all')),
+                       ('listing_sort',getattr(client,'sort',None) or 'hot'),(key('type_filter'),type_filter or 'all'),(key('min_words'),str(min_words or 0))):
+        old,_=store.load_checkpoint(name)
+        if old is not None and old!=value:
+            label={'comment_scope':'max_comments','listing_sort':'listing sort'}.get(name,name.split(':')[0].replace('scope','max_profiles'))
+            raise ValueError(f'Use the same {label} when resuming, or start a new database')
+        store.checkpoint(name,value,True)
     attempted=set(); succeeded=0; failed=0; unavailable=0; seen_tokens=set()
-    # max_profiles counts usable profiles: unavailable ones (friends-only, deactivated) are replaced from the listing.
-    usable=lambda:store.connection.execute('SELECT count(*) FROM crawl_queue WHERE NOT unavailable').fetchone()[0]
+    def usable():
+        # Unavailable profiles (friends-only, deactivated) never count; with min_words only assessable or still-pending ones do.
+        q=store.connection.execute
+        if min_words is None: return q('SELECT count(*) FROM crawl_queue WHERE NOT unavailable AND sample=?',[sample]).fetchone()[0]
+        from .battery import corpus_text
+        from .text import words
+        done=[r[0] for r in q('SELECT profile_num FROM crawl_queue WHERE complete AND sample=?',[sample]).fetchall()]
+        pending=q('SELECT count(*) FROM crawl_queue WHERE NOT complete AND NOT unavailable AND sample=?',[sample]).fetchone()[0]
+        return pending+sum(words(corpus_text(store.load_snapshot(n).segments))>=min_words for n in done)
     while True:
         for ref in store.pending():
             if ref.profile_num in attempted: continue
@@ -110,8 +113,8 @@ async def run_crawl(client,store,docs_client,limit,*,max_profiles=500,max_commen
             except ProfileUnavailable:
                 store.mark_unavailable(ref.profile_num); unavailable+=1
         if limit is not None and len(attempted)>=limit: break
-        token,complete=store.load_checkpoint('listing')
-        if complete and (store.load_checkpoint('category_terminal')[1] or usable()>=max_profiles): break
+        token,complete=store.load_checkpoint(key('listing'))
+        if complete and (store.load_checkpoint(key('category_terminal'))[1] or usable()>=max_profiles): break
         if token in seen_tokens: raise PaginationError('Listing pagination token cycle')
         seen_tokens.add(token)
         page=await client.listing(token)
@@ -123,23 +126,24 @@ async def run_crawl(client,store,docs_client,limit,*,max_profiles=500,max_commen
             existing={r[0] for r in store.connection.execute('SELECT profile_num FROM crawl_queue').fetchall()}
             count=usable(); fresh=[]; cut=False
             for ref in page.items:
+                if pattern and not pattern.search(ref.personality_type or ''): continue
                 if ref.profile_num not in existing:
                     if count>=max_profiles: cut=True; break
                     fresh.append(ref); existing.add(ref.profile_num); count+=1
-            store.enqueue(fresh)
+            store.enqueue(fresh,sample)
             capped=count>=max_profiles
             # A page cut short by the cap is re-read on refill (queued items dedupe), so listing order is kept.
             if cut: seen_tokens.discard(token)
-            store.checkpoint('listing',token if cut else page.next_token,page.terminal or capped)
-            store.checkpoint('category_terminal',None,page.terminal)
+            store.checkpoint(key('listing'),token if cut else page.next_token,page.terminal or capped)
+            store.checkpoint(key('category_terminal'),None,page.terminal and not cut)
             store.connection.execute('COMMIT')
         except BaseException:
             store.connection.execute('ROLLBACK'); raise
     outstanding=len(store.pending())
     return {'processed':len(attempted),'succeeded':succeeded,'failed':failed,'unavailable':unavailable,'outstanding':outstanding,
-            'max_profiles':max_profiles,'usable':usable(),
-            'scope_complete':store.load_checkpoint('listing')[1] and outstanding==0 and (usable()>=max_profiles or store.load_checkpoint('category_terminal')[1]),
-            'full_crawl_complete':store.load_checkpoint('category_terminal')[1] and outstanding==0}
+            'max_profiles':max_profiles,'sample':sample,'usable':usable(),
+            'scope_complete':store.load_checkpoint(key('listing'))[1] and outstanding==0 and (usable()>=max_profiles or store.load_checkpoint(key('category_terminal'))[1]),
+            'full_crawl_complete':store.load_checkpoint(key('category_terminal'))[1] and outstanding==0}
 
 def request_key(url):
     parts=urlsplit(url)

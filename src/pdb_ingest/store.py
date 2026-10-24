@@ -72,12 +72,12 @@ class Store:
         row = self.connection.execute('SELECT snapshot_json FROM profiles WHERE profile_num=?',[profile_num]).fetchone()
         return snapshot_from_dict(json.loads(row[0])) if row else None
 
-    def enqueue(self, refs):
+    def enqueue(self, refs, sample='top'):
         rank=self.connection.execute('SELECT coalesce(max(discovery_rank),0) FROM crawl_queue').fetchone()[0]
         for ref in refs:
             rank+=1
             existing=self.connection.execute('SELECT complete FROM profiles WHERE profile_num=?',[ref.profile_num]).fetchone()
-            self.connection.execute('INSERT INTO crawl_queue(profile_num,url,complete,discovery_rank) VALUES (?,?,?,?) ON CONFLICT DO NOTHING',[ref.profile_num,ref.url,bool(existing and existing[0]),rank])
+            self.connection.execute('INSERT INTO crawl_queue(profile_num,url,complete,discovery_rank,sample) VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING',[ref.profile_num,ref.url,bool(existing and existing[0]),rank,sample])
 
     def pending(self):
         return [ProfileRef(*r) for r in self.connection.execute('SELECT profile_num,url FROM crawl_queue WHERE NOT complete AND NOT unavailable ORDER BY discovery_rank NULLS LAST,profile_num').fetchall()]

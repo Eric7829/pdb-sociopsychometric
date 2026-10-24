@@ -26,6 +26,9 @@ def main(argv=None):
             sub.add_argument('--limit',type=int,help='Maximum profile attempts this invocation')
             sub.add_argument('--max-profiles',type=int,default=500,help='Scope cap in PDB listing order (default: 500)')
             sub.add_argument('--sort',choices=('hot','top'),default='hot',help='Listing order: site default HOT, or Top (All Time)')
+            sub.add_argument('--sample',default='top',help='Queue tag and scope name for a supplemental sample (default: top)')
+            sub.add_argument('--type-filter',help="Regex on the listing consensus type, e.g. '^ES[TF][JP]\\b'")
+            sub.add_argument('--min-words',type=int,help='Count only complete profiles with at least this many corpus words toward --max-profiles')
         sub.add_argument('--capture-dir',type=Path,default=Path('data/run'))
         sub.add_argument('--max-comments',type=int,help='Fetch reply threads only for the first N top-level comments (pinned first); default: all')
         sub.add_argument('--headless',action='store_true')
@@ -87,7 +90,8 @@ def main(argv=None):
                             if args.command=='profile':
                                 ok=await process_profile(client,store,docs,args.profile_num,args.max_comments)
                                 return {'processed':1,'succeeded':int(ok),'failed':int(not ok)}
-                            return await run_crawl(client,store,docs,args.limit,max_profiles=args.max_profiles,max_comments=args.max_comments)
+                            return await run_crawl(client,store,docs,args.limit,max_profiles=args.max_profiles,max_comments=args.max_comments,
+                                                   sample=args.sample,type_filter=args.type_filter,min_words=args.min_words)
                 stats=asyncio.run(run())
             print(json.dumps(stats))
             return 1 if stats['failed'] or (not stats['processed'] and not stats.get('scope_complete')) else 0

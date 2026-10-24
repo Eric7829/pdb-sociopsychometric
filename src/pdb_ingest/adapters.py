@@ -73,7 +73,7 @@ def parse_listing(payload,offset,limit):
     try:
         rows=payload['profiles']
         if not isinstance(rows,list): raise TypeError()
-        refs=[ProfileRef(int(r['id']),f"https://www.personality-database.com/profile/{int(r['id'])}") for r in rows]
+        refs=[ProfileRef(int(r['id']),f"https://www.personality-database.com/profile/{int(r['id'])}",r.get('personality_type')) for r in rows]
         terminal=len(rows)<limit
         return Page(refs,None if terminal else str(offset+limit),terminal)
     except (KeyError,TypeError,ValueError) as e:
