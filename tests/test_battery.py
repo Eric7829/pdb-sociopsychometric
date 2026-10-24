@@ -189,7 +189,7 @@ def test_corpus_cap_keeps_priority_segments_in_original_order():
 
 async def test_lean_predict_variant_runs_end_to_end(tmp_path):
     from pdb_ingest.battery import PROMPTS,STYLES,CORPUS_CAPS
-    assert STYLES['stage3-predict-v2']=='predict_lite' and CORPUS_CAPS['stage3-predict-v2']==8000
+    assert STYLES['stage3-predict-v2']=='predict_lite' and 'stage3-predict-v2' not in CORPUS_CAPS   # full text kept
     class Lite(VaryingLlm): pass
     llm=Lite()
     run=await run_battery(llm,7,[seg('I write at night and avoid parties. '*20)],prompt_version='stage3-predict-v2',reflections=['note one','note two'])

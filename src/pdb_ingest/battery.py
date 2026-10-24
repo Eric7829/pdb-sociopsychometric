@@ -54,9 +54,9 @@ Your task in each request is to predict how the participant responded to a stand
 PROMPTS={'stage3-v1':SYSTEM_PROMPT,'stage3-v1-no3':SYSTEM_PROMPT.replace(USE3,''),'stage3-predict-v1':PREDICT_PROMPT,
          'stage3-predict-v2':PREDICT_PROMPT}
 STYLES={'stage3-v1':'persona','stage3-v1-no3':'persona','stage3-predict-v1':'predict','stage3-predict-v2':'predict_lite'}
-# v2 = token-lean third person: 4 calls instead of 8, a short evidence summary instead of per-item reasoning, shorter
-# reflections, and the corpus capped (Park et al. 2024: dropping 80% of an interview still gave 0.79 vs 0.85 on the GSS).
-CORPUS_CAPS={'stage3-predict-v2':8000}
+# v2 = token-lean third person: 4 calls instead of 8, a short evidence summary instead of per-item reasoning and shorter
+# reflections. The full corpus is kept (input is cheap); CORPUS_CAPS can cap words per version if ever needed.
+CORPUS_CAPS={}
 
 REFLECTION_SYSTEM='''<biographical_corpus>
 {corpus}
