@@ -17,3 +17,15 @@ Ours on the full Essays set: 56.1% / .586. Majumder et al. 2017's best: 58.8%.
   pipeline is the honest number.
 - The Big Five essays result beats both our model and the published Essays models, zero-shot.
 - Not done: few-shot neighbours, calibration, a larger set. PANDORA cannot be used (its terms forbid transfer).
+
+## Full PDB labels (1 sample, scrubbed)
+
+785 of 863 profiles with a crowd MBTI vote, $1.80 (the spending cap; 78 remain unlabelled). Calls averaged about
+$0.0023, above the pilot's $0.0014, because later profiles are longer.
+
+| | n | Exact | Top-3 | E/I | S/N | T/F | J/P |
+|---|---|---|---|---|---|---|---|
+| DeepSeek, 1 sample | 785 | 29.8% | 56.4% | .67 | .73 | .72 | .69 |
+
+The pilot's 36% was on the high side, as 25 profiles would predict. It still doubles our models' exact match. Recall
+on crowd S types is 49% (N 81%), far above our small models, which almost never call S.
