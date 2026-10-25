@@ -78,3 +78,16 @@ async def test_assessor_predicts_agent_types(tmp_path):
     assert agent['source']=='Form M prompt A' and r['mbti']['jev'] is None   # no v3b or Jev labels for the fake profiles
     # The fake agent always self-types 4w5: a single class cannot be learned and is reported, not crashed on.
     assert r['agent_enneagram']=={'unavailable':'only one class in training data (4)'}
+
+async def test_cached_assessor_trains_once_and_reloads(tmp_path,monkeypatch):
+    pytest.importorskip('sklearn')
+    store=await build(tmp_path); monkeypatch.setattr(panel,'MODEL_CACHE',tmp_path/'models')
+    db=tmp_path/'fake.duckdb'; db.write_bytes(b'x')
+    with store:
+        a=panel.cached_assessor(store,(None,None,{'model':'fake'}),db,('top',),None,embed_fn=fake_embed,folds=4)
+        b=panel.cached_assessor(store,(None,None,{'model':'fake'}),db,('top',),None,embed_fn=fake_embed,folds=4)
+    assert a.loaded_from is None and b.loaded_from and len(list((tmp_path/'models').glob('*.pkl')))==1
+    text='I love to lead and plan, I organize teams.'
+    assert a.assess(text)['mbti']['crowd']['type']==b.assess(text)['mbti']['crowd']['type']
+    before=panel.fingerprint(db,('top',),'fake'); db.write_bytes(b'changed')
+    assert panel.fingerprint(db,('top',),'fake')!=before   # any database change retrains

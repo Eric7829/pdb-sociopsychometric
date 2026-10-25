@@ -249,6 +249,34 @@ class Assessor:
                 'enneagram':cores(self.ennea,self.ennea_reason),'agent_enneagram':cores(self.agent_ennea,self.agent_ennea_reason),
                 'trained_on':self.trained_on}
 
+MODEL_CACHE=Path('data/stage2/panel_models')
+
+def fingerprint(db,samples,encoder_name):
+    """Changes whenever anything the assessor learns from changes: the database file, teacher labels, agent Form M results,
+    ablation numbers, the panel/embedding code, or library versions."""
+    import hashlib,numpy,sklearn
+    h=hashlib.sha256(); st=Path(db).stat()
+    h.update(f'{Path(db).resolve()}|{st.st_size}|{st.st_mtime_ns}|{tuple(samples)}|{encoder_name}|{sklearn.__version__}|{numpy.__version__}'.encode())
+    for f in (Path(__file__),Path(__file__).with_name('embed.py'),Path(__file__).with_name('encoder_text.py'),ABLATION):
+        if f.exists(): h.update(f.read_bytes())
+    for d in (JEV_LABELS,AGENT_FORMM):
+        if d.exists(): h.update('|'.join(sorted(f'{f.name}:{f.stat().st_size}:{f.stat().st_mtime_ns}' for f in d.glob('*.json'))).encode())
+    return h.hexdigest()[:16]
+
+def cached_assessor(store,encoder,db,samples,cache_dir,**kw):
+    """Assessor trained once per fingerprint and pickled under MODEL_CACHE (only the newest is kept); later starts load it."""
+    import pickle
+    import numpy as np
+    f=MODEL_CACHE/f'{fingerprint(db,samples,encoder[2]["model"])}.pkl'
+    if f.exists(): a=Assessor.__new__(Assessor); a.__dict__.update(pickle.loads(f.read_bytes())); a.loaded_from=str(f)
+    else:
+        a=Assessor(store,encoder,samples=samples,cache_dir=cache_dir,**kw)
+        MODEL_CACHE.mkdir(parents=True,exist_ok=True)
+        for old in MODEL_CACHE.glob('*.pkl'): old.unlink()
+        f.write_bytes(pickle.dumps({k:v for k,v in a.__dict__.items() if k not in ('np','encoder','embed_fn')})); a.loaded_from=None
+    a.np=np; a.encoder=encoder; a.embed_fn=kw.get('embed_fn') or a.embed
+    return a
+
 def percentile(raw,norm):
     counts,minimum=norm['counts'],norm['minimum']
     r=min(max(int(round(raw)),minimum),minimum+len(counts)-1); i=r-minimum

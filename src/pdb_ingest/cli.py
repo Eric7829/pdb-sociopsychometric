@@ -89,7 +89,8 @@ def main(argv=None):
             store=Store.__new__(Store); store.connection=duckdb.connect(str(args.db),read_only=True)
             samples=tuple(args.samples); summary=panel.build_summary(store.connection,samples)
             encoder=embed.hf_encoder()
-            assessor=panel.Assessor(store,encoder,samples=samples,cache_dir=Path('data/stage2/emb')/embed.model_slug(encoder[2]['model'])/'main')
+            assessor=panel.cached_assessor(store,encoder,args.db,samples,Path('data/stage2/emb')/embed.model_slug(encoder[2]['model'])/'main')
+            print(json.dumps({'models':'loaded '+assessor.loaded_from if assessor.loaded_from else 'trained and cached'}),flush=True)
             panel.serve(summary,assessor,port=args.port); return 0
         with Store(args.db) as store:
             if args.command=='export':
