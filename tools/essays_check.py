@@ -34,7 +34,10 @@ def main():
     res={'essays':len(texts),'panel_auc':{},'external_auc':{}}
     for i,k in enumerate('OCEAN'):
         res['panel_auc'][k]=round(float(roc_auc_score(y[:,i],ours[:,i])),3); res['external_auc'][k]=round(float(roc_auc_score(y[:,i],theirs[:,i])),3)
-    for m in ('panel_auc','external_auc'): res[m+'_mean']=round(float(np.mean(list(res[m].values()))),3)
+    # Accuracy comparable to published Essays results: predict "high" above the prediction median (labels are ~50/50).
+    res['panel_accuracy_median_split']={k:round(float(np.mean((ours[:,i]>np.median(ours[:,i]))==y[:,i])),3) for i,k in enumerate('OCEAN')}
+    res['majority_baseline']={k:round(float(max(y[:,i].mean(),1-y[:,i].mean())),3) for i,k in enumerate('OCEAN')}
+    for m in ('panel_auc','external_auc','panel_accuracy_median_split'): res[m+'_mean']=round(float(np.mean(list(res[m].values()))),3)
     Path('data/stage2/essays_check.json').write_text(json.dumps(res,indent=1),encoding='utf-8'); print(json.dumps(res,indent=1))
 
 if __name__=='__main__': main()

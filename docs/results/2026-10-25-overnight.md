@@ -148,7 +148,18 @@ The 859-profile cross-validation on real PDB excerpts favours v0.3 on every lett
 | Panel model | .571 | .580 | .594 | .598 | .602 | **.589** |
 | External DistilBERT | .466 | .561 | .537 | .534 | .516 | .523 |
 
-On self-reflective writing the panel's Big Five transfers to real self-report on **all five traits** (each well above chance with n = 2,467), including Agreeableness, which came out reversed on Reddit comments. Models trained on the Essays data itself usually report binary accuracies around .56–.62, so a model trained only on PDB agent readings landing at AUC ~.59 is in the same range. Genre matters more than the method: Reddit chatter gave .06, self-reflective essays give a consistent, real signal.
+On self-reflective writing the panel's Big Five transfers to real self-report on **all five traits** (each well above chance with n = 2,467), including Agreeableness, which came out reversed on Reddit comments.
+
+The table below compares accuracy against models *trained on the Essays data* (Table 1 of Majumder, Poria, Gelbukh & Cambria, 2017, IEEE Intelligent Systems 32(2)); the panel predicts "high" above its own median:
+
+| Accuracy % | EXT | NEU | AGR | CON | OPN | Mean |
+|---|---|---|---|---|---|---|
+| Majority baseline | 51.7 | 50.0 | 53.1 | 50.8 | 51.5 | 51.4 |
+| Mairesse et al. 2007 features + SVM (trained on Essays) | 55.1 | 58.1 | 55.4 | 55.3 | 59.6 | 56.7 |
+| Majumder et al. 2017, best configuration per trait (trained on Essays) | 58.1 | 59.4 | 56.7 | 57.3 | 62.7 | 58.8 |
+| **Panel model (never saw Essays)** | **56.8** | **58.5** | **56.7** | **54.8** | **54.8** | **56.3** |
+
+The panel matches the trained 2007 baseline overall without seeing a single essay, and ties the best published result on Agreeableness. Openness is its weak spot. The 2017 figures pick each trait's best configuration after the fact, so they are optimistic. Genre matters more than the method: Reddit chatter gave .06, self-reflective essays give a consistent, real signal.
 
 This is the first test against real people at scale. It argues for validating on real self-descriptions with real scores before trusting the panel's Big Five beyond PDB.
 
