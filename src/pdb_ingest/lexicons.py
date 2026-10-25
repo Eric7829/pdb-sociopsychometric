@@ -19,7 +19,7 @@ WORDS={'i':"i me my mine myself i'm i've i'd i'll im ive",'we':"we us our ours o
        'auxiliary':'am is are was were be been being have has had do does did will would shall should can could may might must',
        'tentative':'maybe perhaps possibly probably might guess seems seem unsure somewhat kinda sorta apparently',
        'certainty':'always never definitely certainly absolutely sure obviously clearly undoubtedly totally completely'}
-WORDS={k:frozenset(v.split()) for k,v in WORDS.items()}
+WORDS={k:frozenset(v.split()) for k,v in WORDS.items()}; WORDS_ALL=frozenset().union(*WORDS.values())
 FEATURES=([f'{k}_rate' for k in WORDS]+[f'nrc_{e}_rate' for e in EMOTIONS]+['concreteness_mean','concrete_share']+
           [f'glasgow_{v}' for v in GLASGOW.values()]+['mean_word_length','words_per_sentence','ttr_500','question_rate','exclamation_rate','lexicon_coverage'])
 TOKEN=re.compile(r"[a-z']+")
@@ -52,16 +52,25 @@ def load_lexicons(root=None):
     lex.available=bool(lex.concreteness or lex.glasgow or lex.emotions)
     return lex
 
+def lemma(w,table):
+    """w, or its singular when only that is in the norms (Brysbaert lists lemmas: 'bike', not 'bikes')."""
+    if w in table: return w
+    for s in (w[:-1] if w.endswith('s') else None,w[:-2] if w.endswith('es') else None):
+        if s and s in table: return s
+    return w
+
 def doc_features(text,lex):
     """Fixed-length, always finite feature vector (order: FEATURES)."""
-    toks=TOKEN.findall(text.lower()); n=max(len(toks),1); c=Counter(toks); out=[]
-    out+=[sum(v for w,v in c.items() if w in s)/n for s in WORDS.values()]
+    toks=TOKEN.findall(text.lower()); n=max(len(toks),1); out=[]; raw=Counter(toks)
+    c=Counter()   # lexicon lookups use singulars; function-word and style counts use the raw tokens
+    for w,v in raw.items(): c[w if w in WORDS_ALL else lemma(w,lex.concreteness)]+=v
+    out+=[sum(v for w,v in raw.items() if w in s)/n for s in WORDS.values()]
     out+=[sum(v for w,v in c.items() if w in lex.emotions.get(e,()))/n for e in EMOTIONS]
     hits=[(lex.concreteness[w],v) for w,v in c.items() if w in lex.concreteness]; k=sum(v for _,v in hits)
     out+=[sum(s*v for s,v in hits)/k if k else 3.0,sum(v for s,v in hits if s>=4)/k if k else 0.0]
     g=[(lex.glasgow[w],v) for w,v in c.items() if w in lex.glasgow]; m=sum(v for _,v in g)
     out+=[sum(d[k_]*v for d,v in g)/m if m else 4.0 for k_ in GLASGOW.values()]
     sentences=[s for s in re.split(r'[.!?\n]+',text) if TOKEN.search(s.lower())]
-    out+=[sum(len(w)*v for w,v in c.items())/n,len(toks)/max(len(sentences),1),len(set(toks[:500]))/max(min(len(toks),500),1),
+    out+=[sum(len(w)*v for w,v in raw.items())/n,len(toks)/max(len(sentences),1),len(set(toks[:500]))/max(min(len(toks),500),1),
           text.count('?')/n,text.count('!')/n,k/n]
     return np.array(out,dtype=float)

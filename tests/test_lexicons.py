@@ -31,3 +31,12 @@ def test_missing_lexicons(tmp_path,monkeypatch):
 def test_long_text_is_fast():
     lex=load_lexicons(FIX); t=time.perf_counter(); doc_features(' '.join(['I hate my stone job.']*20000),lex)
     assert time.perf_counter()-t<2
+
+def test_plural_falls_back_to_singular():
+    v=doc_features('stones ideas',load_lexicons(FIX))
+    assert f(v,'concreteness_mean')==3.0 and f(v,'lexicon_coverage')==1.0
+
+def test_plural_fallback_does_not_touch_function_words():
+    lex=load_lexicons(FIX); lex.concreteness['i']=1.0; lex.concreteness['hi']=2.0
+    v=doc_features('his is',lex)
+    assert f(v,'i_rate')==0 and f(v,'they_rate')==.5
