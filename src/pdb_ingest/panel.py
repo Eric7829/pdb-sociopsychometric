@@ -89,10 +89,15 @@ def load_rows(conn,samples=('top',),prompt_version='stage3-v1'):
             rows[n].update(ipip={k:d[k]['raw'] for k in DOMAINS},pct={k:d[k]['percentile'] for k in DOMAINS},form_m=form_m,agent_ennea=ennea)
     return rows
 
+def agent_types(ids):
+    """profile -> the agent's Form M type and its source: v3b results when they cover >= 200 of ids, else prompt A's."""
+    v3b={int(f.stem):json.loads(f.read_text(encoding='utf-8'))['scored']['type'] for f in AGENT_FORMM.glob('*.json')} if AGENT_FORMM.exists() else {}
+    return ({n:v3b[n] for n in ids if n in v3b},'Form M v3b') if sum(n in v3b for n in ids)>=200 else (None,'Form M prompt A')
+
 def build_summary(conn,samples=('top',)):
-    rows=load_rows(conn,samples).values()
+    rowmap=load_rows(conn,samples); rows=rowmap.values(); agent,source=agent_types(rowmap)
     crowd_mbti=Counter(modal(r['mbti_counts']) for r in rows if 'mbti_counts' in r)
-    form_m=Counter(r['form_m'] for r in rows if 'form_m' in r)
+    form_m=Counter(agent.values()) if agent else Counter(r['form_m'] for r in rows if 'form_m' in r)
     crowd_core=Counter(modal(r['ennea_counts'])[0] for r in rows if 'ennea_counts' in r)
     agent_core=Counter(r['agent_ennea'][0] for r in rows if r.get('agent_ennea'))
     with_ipip=[r for r in rows if 'ipip' in r]
@@ -105,7 +110,7 @@ def build_summary(conn,samples=('top',)):
     letter_corr=[[spearman([letter_share(r['mbti_counts'],d,l) for r in both],[r['ipip'][k] for r in both]) for d,l in pairs] for k in DOMAINS]
     cross=Counter((modal(r['mbti_counts']),modal(r['ennea_counts'])[0]) for r in rows if 'mbti_counts' in r and 'ennea_counts' in r)
     return {'samples':list(samples),'profiles':len(rows),
-            'mbti':{'types':MBTI,'crowd':[crowd_mbti.get(t,0) for t in MBTI],'form_m':[form_m.get(t,0) for t in MBTI]},
+            'mbti':{'types':MBTI,'crowd':[crowd_mbti.get(t,0) for t in MBTI],'form_m':[form_m.get(t,0) for t in MBTI],'form_m_source':source},
             'enneagram':{'cores':list('123456789'),'crowd':[crowd_core.get(c,0) for c in '123456789'],'agent':[agent_core.get(c,0) for c in '123456789']},
             'big5':{'domains':list(DOMAINS),'names':DOMAIN_NAMES,'n':len(with_ipip),'histograms':hist},
             'big5_correlation':{'domains':list(DOMAINS),'matrix':big5_corr,'n':len(with_ipip)},
@@ -193,10 +198,9 @@ class Assessor:
             JL=np.array([[J[k,[j for j,t in enumerate(MBTI) if t[i]==a]].sum() for i,(a,_) in enumerate(LETTERS)] for k in range(len(sub))])
             self.jev=card(sub,JL,J,{'jev':[MBTI[k] for k in J.argmax(1)],'crowd':[modal(rows[n]['mbti_counts']) for n in sub]})
         # Agent card: the DeepSeek agent's Form M type (v3b when available for enough profiles), letters only.
-        v3b={int(f.stem):json.loads(f.read_text(encoding='utf-8'))['scored']['type'] for f in AGENT_FORMM.glob('*.json')} if AGENT_FORMM.exists() else {}
-        use_v3b=sum(n in v3b for n in ids)>=200; agent=(lambda n:v3b.get(n)) if use_v3b else (lambda n:rows[n].get('form_m'))
+        v3b,source=agent_types(ids); agent=(lambda n:v3b.get(n)) if v3b else (lambda n:rows[n].get('form_m'))
         sub=[n for n in ids if agent(n)]; at=[agent(n) for n in sub]
-        self.agent=card(sub,letter_onehot(at),None,{'agent':at}); self.agent['source']='Form M v3b' if use_v3b else 'Form M prompt A'
+        self.agent=card(sub,letter_onehot(at),None,{'agent':at}); self.agent['source']=source
         def fit_cores(label):
             """Multiclass Enneagram-core head; (None, n, reason) when the data cannot support it."""
             sub=[n for n in ids if label(rows[n])]; D,E=data(sub); y=np.array([label(rows[n])[0] for n in sub]); counts=Counter(y)

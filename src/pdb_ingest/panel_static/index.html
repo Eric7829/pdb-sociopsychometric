@@ -79,7 +79,7 @@ td,th{border-bottom:1px solid var(--grid);padding:3px 8px;text-align:right;white
   <h2>Dataset</h2>
   <p class="sub">Crowd = the modal type in each profile's vote distribution (≥10 votes). Agent = an LLM reading the creator's own writing and completing IPIP-NEO-120 and MBTI Form M. These are agent readings, not self-reports.</p>
   <div class="grid">
-    <div class="card"><h3>MBTI types</h3><div class="legend"><span><i style="background:var(--s1)"></i>Crowd modal type</span><span><i style="background:var(--s2)"></i>Agent Form M result</span></div><div id="c-mbti"></div><details><summary>Table</summary><div id="t-mbti"></div></details></div>
+    <div class="card"><h3>MBTI types</h3><div class="legend"><span><i style="background:var(--s1)"></i>Crowd modal type</span><span><i style="background:var(--s2)"></i><span id="form-m-source">Agent Form M result</span></span></div><div id="c-mbti"></div><details><summary>Table</summary><div id="t-mbti"></div></details></div>
     <div class="card"><h3>Enneagram core</h3><div class="legend"><span><i style="background:var(--s1)"></i>Crowd modal core</span><span><i style="background:var(--s2)"></i>Agent self-typing</span></div><div id="c-ennea"></div><details><summary>Table</summary><div id="t-ennea"></div></details></div>
   </div>
   <div class="card" style="margin-top:16px"><h3>Big Five distributions (agent IPIP percentiles)</h3><p class="note" id="n-big5"></p><div id="c-big5" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div><details><summary>Table</summary><div id="t-big5"></div></details></div>
@@ -143,8 +143,9 @@ function sequential(v){return `color-mix(in oklab, ${css('--s1')} ${Math.round(M
 async function loadSummary(){
   const s=await (await fetch('/api/summary')).json();
   $('intro').textContent=`${s.profiles} PDB community profiles (sample: ${s.samples.join(', ')}), crawled in PDB "Top" order. Agent Big Five available for ${s.big5.n}.`;
-  groupedBars('c-mbti',s.mbti.types,[s.mbti.crowd,s.mbti.form_m],[css('--s1'),css('--s2')],['Crowd','Agent Form M']);
-  table('t-mbti',['Type','Crowd','Agent Form M'],s.mbti.types.map((t,i)=>[t,s.mbti.crowd[i],s.mbti.form_m[i]]));
+  const fm='Agent '+(s.mbti.form_m_source||'Form M');$('form-m-source').textContent=fm+' result';
+  groupedBars('c-mbti',s.mbti.types,[s.mbti.crowd,s.mbti.form_m],[css('--s1'),css('--s2')],['Crowd',fm]);
+  table('t-mbti',['Type','Crowd',fm],s.mbti.types.map((t,i)=>[t,s.mbti.crowd[i],s.mbti.form_m[i]]));
   groupedBars('c-ennea',s.enneagram.cores,[s.enneagram.crowd,s.enneagram.agent],[css('--s1'),css('--s2')],['Crowd','Agent self-typing']);
   table('t-ennea',['Core','Crowd','Agent'],s.enneagram.cores.map((c,i)=>[c,s.enneagram.crowd[i],s.enneagram.agent[i]]));
   $('n-big5').textContent=`${s.big5.n} profiles; percentiles against the IPIP-NEO-120 internet norm sample.`;
