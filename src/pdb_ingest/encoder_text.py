@@ -2,10 +2,14 @@
 import re
 from .text import JARGON,segment_spans
 
-# Encoder-only extras (stored scrubbed_text is unchanged): Socionics codes, SLOAN codes, function-position words.
+# Encoder-only extras (stored scrubbed_text is unchanged): Socionics codes, SLOAN codes, function-position words, partial MBTI codes
+# (INFx, xNTP) and typology talk. PDB writers who talk typology are mostly voted N/P, so that talk acts as a hidden label.
 SOCIONICS='ILE|SEI|ESE|LII|EIE|LSI|SLE|IEI|SEE|ILI|LIE|ESI|LSE|EII|IEE|SLI'
 EXTRA_JARGON=re.compile(r'(?<!\w)(?:'+SOCIONICS+r'|[RSrs][CLcl][OUou][AEae][INin]|(?i:dom|aux|tert|auxiliary|tertiary|polr|blindspot)|'
-                        r'(?i:(?:dominant|inferior|demon|trickster|critic|nemesis)\s+function))(?!\w)')
+                        r'(?i:(?:dominant|inferior|demon|trickster|critic|nemesis)\s+function)|'
+                        r'(?=[A-Za-z]{0,3}[Xx])[IEXx][NSXx][TFXx][JPXx]|'
+                        r'(?i:ennea\w*|tritype\w*|trifix\w*|mbti|myers[- ]briggs|socionics|typolog\w*|16\s?personalities|sakinorva|keirsey|'
+                        r'sx|sp|instinctual\s+variants?|(?:cognitive\s+)?function\s+stacks?|cognitive\s+functions?|type\s+[1-9](?!\d)))(?!\w)')
 
 def clean(piece,scrub):
     return re.sub(r'\s+',' ',EXTRA_JARGON.sub('',JARGON.sub('',piece)) if scrub else piece).strip()

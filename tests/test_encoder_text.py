@@ -39,3 +39,9 @@ async def test_scrub_covers_context_quotes_and_prompts(tmp_path):
 async def test_mask_prompts_false_pools_prompt(tmp_path):
     (text,ranges),=await view(tmp_path,'Because books.',mask_prompts=False)
     assert pooled(text,ranges)==['Q1: Why?','Because books.']
+
+def test_clean_removes_typology_talk_but_not_ordinary_words():
+    from pdb_ingest.encoder_text import clean
+    out=clean("Searching my ennea type 4, sx blind, INFx or xNTP per my cognitive functions and MBTI; I type 40 wpm, the X-ray was fine.",True)
+    for gone in ('ennea','type 4','sx','INFx','xNTP','cognitive functions','MBTI'): assert gone not in out
+    for kept in ('I type 40 wpm','X-ray','blind'): assert kept in out
