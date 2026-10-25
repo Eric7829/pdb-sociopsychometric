@@ -107,7 +107,43 @@ The 859-profile cross-validation on real PDB excerpts favours v0.3 on every lett
 - Soft targets at a=.75 are the best variant, but by about one point, so v0.3 is unchanged.
 - **The headline still predicts almost no S on portraits whatever the S/N letter does**, which confirms that the 16-type head's N-heavy prior, not S/N detection, decides the headline.
 
-## 6. Not done
+## 6. Prior-neutral headline (shown next to the current one)
+
+`tools/prior_neutral_experiment.py`: the crowd card's 16-type head divided by its training type frequencies before pooling, in 5-fold CV over 795 profiles plus 32 portraits:
+
+| | Current (PDB prior) | Prior-neutral |
+|---|---|---|
+| Full profiles vs crowd: exact / top-3 | 19.0% / 44.9% | 17.9% / 43.8% |
+| Full: mean recall per type (16 types weighted equally) | 12.3% | **16.4%** |
+| Full: S types predicted (crowd has 197) | 52 | 214 |
+| 250-word excerpts vs crowd: exact / top-3 | 15.1% / 38.4% | 14.5% / 34.8% |
+| Portraits: exact / top-3 | 21.9% / 53.1% | **28.1% / 71.9%** |
+| Portraits: S types predicted (16 true) | 0 | 5 |
+
+- Prior-neutral gives up about a point of exact accuracy on PDB in exchange for predicting S about as often as the crowd does (214 vs 197, rather than 52) and treating rare types fairly (per-type recall +4 points).
+- On portraits, where every type is equally common, it is clearly better.
+- The panel now shows both: the PDB-prior headline, plus a "Prior-neutral" line with its own cross-validated accuracy on the crowd and Jev cards. The agent card has no 16-type head, so it has no prior to remove.
+
+## 7. External Big Five model and PANDORA (first real self-report check)
+
+`tools/ocean_bert_compare.py` compares `ppp57420/ocean-personality-distilbert` (Hugging Face; claims Pearson r .77) with the panel's Big Five model. Spearman r is averaged over the five traits:
+
+| Test | External DistilBERT | Panel model |
+|---|---|---|
+| PDB, full profiles vs agent IPIP (752) | .13 | .57 (5-fold CV) |
+| PDB, 250-word excerpts vs agent IPIP | .02 | .34 (5-fold CV) |
+| **PANDORA test split, 500 users, ~1,000 words of Reddit comments each, vs self-reported percentiles** | **−.03** (O .04, C −.04, E −.08, A −.10, N .04) | **.06** (O .18, C .10, E .00, A −.12, N .12) |
+
+- **The external model shows no signal on either test**, even on PANDORA, where it was most likely trained. Its r .77 is not reproduced at the user level; comment-level train/test splits that let the same author appear on both sides are the likely explanation. It also rates "I love wild parties, meeting strangers and being the centre of attention" at Extraversion .07 on its 0–1 scale.
+- **The panel model barely transfers to real self-report on Reddit comments:** mean r .06. Openness (.18), Neuroticism (.12) and Conscientiousness (.10) carry some signal (with 500 users, r above about .09 is significant), but Extraversion is zero and Agreeableness is reversed. The r .57 it reaches against the agent's reading of PDB self-descriptions does **not** carry over to real people writing about other things.
+- **Caveats:**
+  - Reddit comments are general chatter, not self-descriptions, so the genre is far from what the panel is for.
+  - PANDORA's scores come from several different tests that users posted themselves.
+  - In this comment-level re-upload, a "user" is a distinct score profile, which can rarely merge two people.
+
+This is the first test against real people at scale. It argues for validating on real self-descriptions with real scores before trusting the panel's Big Five beyond PDB.
+
+## 8. Not done
 
 - **Reddit "type me" thread:** Reddit returns 403 to automated requests.
 - **Kaggle MBTI dataset:** needs a logged-in Kaggle account, which I can't create or use.
