@@ -24,7 +24,7 @@ JEV_LABELS=Path('data/stage2/llm/typesafe--jev-1.14')
 # the encoder half of the 16-type heads moves from C=.3 to .003: excerpt exact 12.8% -> 15.1%, top-3 34.7% -> 38.1%.
 ENCODER_LETTER_C=ENCODER_TYPE_C=.003
 AGENT_FORMM=Path('data/stage2/formm-v3b-cap8k')   # agent Form M v3b results (tools/formm_v2.py); prompt A's form_m if too few
-ABLATION=Path('data/stage2/type_ablation.json')
+SHORT_TEXT=Path('data/stage2/short_text_experiment_c.json')   # accuracy on held-out 250-word excerpts at the panel's settings
 
 FIRST_PERSON=frozenset("i me my mine myself i'm im i've ive i'd i'll".split())
 
@@ -228,8 +228,9 @@ class Assessor:
             cv_=({'top1':float(np.mean(np.array(cores)[p.argmax(1)]==y)),'chance':max(counts.values())/len(y),'n':len(y)})
             return (mt.fit(D,y),me.fit(E,y),cores,cv_),len(sub),None
         crowd_core=lambda r:modal(r['ennea_counts']) if 'ennea_counts' in r else None
-        a=json.loads(ABLATION.read_text(encoding='utf-8'))['A'] if ABLATION.exists() else {}   # 250-word-crop accuracy, if measured
-        self.short_cv={'type':a.get('l2/crop/fixed+prior/w0.8'),'ipip_spearman':(a.get('l2/ipip_mean_spearman') or {}).get('crop')} if a else None
+        a=json.loads(SHORT_TEXT.read_text(encoding='utf-8')) if SHORT_TEXT.exists() else {}
+        crop=(a.get('crowd_type') or {}).get(f'C={ENCODER_TYPE_C}',{}).get('crop'); r=a.get('big5_crop_spearman')
+        self.short_cv={'type':crop,'ipip_spearman':r} if crop and r else None
         self.ennea,n_ennea,self.ennea_reason=fit_cores(crowd_core)
         self.agent_ennea,n_agent_ennea,self.agent_ennea_reason=fit_cores(lambda r:r.get('agent_ennea'))
         self.trained_on={'regression':len(reg_ids),'crowd_type':self.crowd['n'],'jev_type':self.jev['n'] if self.jev else 0,'agent_type':self.agent['n'],
@@ -279,7 +280,7 @@ def fingerprint(db,samples,encoder_name):
     import hashlib,numpy,sklearn
     h=hashlib.sha256(); st=Path(db).stat()
     h.update(f'{Path(db).resolve()}|{st.st_size}|{st.st_mtime_ns}|{tuple(samples)}|{encoder_name}|{sklearn.__version__}|{numpy.__version__}'.encode())
-    for f in (Path(__file__),Path(__file__).with_name('embed.py'),Path(__file__).with_name('encoder_text.py'),ABLATION):
+    for f in (Path(__file__),Path(__file__).with_name('embed.py'),Path(__file__).with_name('encoder_text.py'),SHORT_TEXT):
         if f.exists(): h.update(f.read_bytes())
     for d in (JEV_LABELS,AGENT_FORMM):
         if d.exists(): h.update('|'.join(sorted(f'{f.name}:{f.stat().st_size}:{f.stat().st_mtime_ns}' for f in d.glob('*.json'))).encode())

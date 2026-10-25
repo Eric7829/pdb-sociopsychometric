@@ -221,7 +221,7 @@ async function assess(){
     if(r.not_self_description&&r.not_self_description.length)$('warn').innerHTML+=`<div class="warn">This may not be a self-description: ${r.not_self_description.join('; ')}. The models learned from people describing themselves, so treat these results as unreliable.</div>`;
     rangeRows('r-big5',Object.values(r.big5));
     const sc=r.short_text_cv;
-    if(sc&&sc.type&&r.words<600)$('warn').innerHTML+=`<div class="warn">Accuracy on short texts is much lower than the full-profile numbers shown in each card. On 250-word excerpts of held-out profiles: right type ${Math.round(sc.type.exact*100)}%, in the top 3 ${Math.round(sc.type.top3*100)}%; Big Five rank correlation ${sc.ipip_spearman.toFixed(2)} (vs about 0.5 on full profiles). Longer texts help.</div>`;
+    if(sc&&sc.type&&r.words<600)$('warn').innerHTML+=`<div class="warn">Accuracy on short texts is much lower than the full-profile numbers shown in each card. On 250-word excerpts of held-out profiles: right type ${Math.round(sc.type.exact*100)}%, in the top 3 ${Math.round(sc.type.top3*100)}%; Big Five rank correlation ${sc.ipip_spearman.toFixed(2)} (vs about 0.57 on full profiles). Longer texts help.</div>`;
     typeCard('crowd',r.mbti.crowd,'crowd','the crowd');typeCard('jev',r.mbti.jev,'jev','Jev');typeCard('agent',r.mbti.agent,'agent','the agent ('+r.mbti.agent.source+')');
     enneaCard('r-ennea',r.enneagram,'voters');enneaCard('r-agent-ennea',r.agent_enneagram,'the agent');
   }catch(e){$('status').textContent='Request failed: '+e.message}
