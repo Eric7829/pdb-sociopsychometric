@@ -17,6 +17,10 @@ MBTI=[a+b+c+d for a in 'EI' for b in 'SN' for c in 'TF' for d in 'JP']
 LETTERS=[('E','I'),('S','N'),('T','F'),('J','P')]
 SAMPLE_JOIN="LEFT JOIN crawl_queue q ON q.profile_num=p.profile_num"
 JEV_LABELS=Path('data/stage2/llm/typesafe--jev-1.14')
+# Encoder-half regularisation (tools/short_text_experiment.py): at C=1 the encoder letter heads put 78-81% of predictions on
+# held-out 250-word excerpts below .05 or above .95 (excerpt log loss worse than chance); C=.01 cut that to 14-28% and raised
+# balanced accuracy on excerpts (crowd .545 -> .573, agent .563 -> .617) and on full profiles (.591 -> .619, .648 -> .671).
+ENCODER_LETTER_C=.01
 AGENT_FORMM=Path('data/stage2/formm-v3b-cap8k')   # agent Form M v3b results (tools/formm_v2.py); prompt A's form_m if too few
 ABLATION=Path('data/stage2/type_ablation.json')
 
@@ -166,7 +170,7 @@ class Assessor:
             """Per-letter heads trained on (n,4) first-letter probabilities P (0/1 for hard labels, a teacher's marginals for soft
             ones); returns {pair: models} and out-of-fold probabilities. Letters with too little of one class are left out."""
             D,E=data(sub); heads={}; oof=np.full((len(sub),4),.5)
-            new=lambda:((tfidf(),LogisticRegression(C=4,max_iter=3000)),(StandardScaler(),LogisticRegression(C=1,max_iter=3000)))
+            new=lambda:((tfidf(),LogisticRegression(C=4,max_iter=3000)),(StandardScaler(),LogisticRegression(C=ENCODER_LETTER_C,max_iter=3000)))
             for i,(a,b) in enumerate(LETTERS):
                 p=P[:,i]
                 if min(p.sum(),(1-p).sum())<folds: continue

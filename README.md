@@ -136,7 +136,7 @@ The 16-type head is fitted with TF-IDF and the scaler trained once on unique pro
 - **Small effects:** fixing the duplicated-row fit, L2-normalising profile vectors and the prior correction each change exact accuracy by under one point. Class-balancing the 16-type head raises macro-F1 (0.146 vs 0.121) but lowers exact accuracy, so it is off.
 - **Self-reported type:** the creator's own profile badge, available for 498 eligible profiles. The crowd's modal type matches it 70% exactly (82–89% per letter), so the crowd is a reasonable proxy for self-perceived type. Text models predict it no better than they predict the crowd (58–59% mean balanced letter accuracy), so no separate self-type head was added.
 
-The encoder scrubber also removes Socionics codes, SLOAN codes and function-position words (`encoder_text.EXTRA_JARGON`). Stored `scrubbed_text` is unchanged. Jev's long-profile accuracy did not drop under the stricter scrubbing: 45% before and 48% after, on 100 profiles over 2,500 words (`tools/jev_scrub_check.py`).
+The encoder scrubber also removes Socionics codes, SLOAN codes, function-position words, partial codes (INFx, xNTP) and typology talk: ennea/enneagram, tritype, MBTI, socionics, typology, 16personalities, sx/sp, cognitive functions, "type 4" (`encoder_text.EXTRA_JARGON`). The talk mattered: it appears in 755 of about 1,000 profiles, and PDB writers who use it are mostly voted N/P, so it acted as a hidden label. Stored `scrubbed_text` is unchanged. Jev's long-profile accuracy did not drop under the stricter scrubbing: 45% before and 48% after, on 100 profiles over 2,500 words (`tools/jev_scrub_check.py`).
 
 ## Encoder comparisons
 

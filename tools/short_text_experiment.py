@@ -50,6 +50,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--db',type=Path,required=True); p.add_argument('--samples',default='top,top2')
     p.add_argument('--output',type=Path,default=Path('data/stage2/short_text_experiment.json'))
+    p.add_argument('--cs',default='',help='Only test these encoder-head C values (comma-separated), letters and the crowd 16-type head; skips M2 and Big Five')
     args=p.parse_args()
     data=load(args.db,tuple(args.samples.split(','))); ids=sorted(data)
     enc=embed.hf_encoder(embed.DEFAULT_MODEL); vpath=Path('data/stage2')/f'excerpt_vectors_{embed.model_slug(enc[2]["model"])}.npz'
@@ -64,6 +65,7 @@ def main():
     def bal(p,y): return float(np.mean([np.mean((p>=.5)[y==v]==v) for v in (True,False) if (y==v).any()]))
     variants={'M0 C=1':(1,False),'M1 C=.1':(.1,False),'M1 C=.03':(.03,False),'M1 C=.01':(.01,False),
               'M2 C=1':(1,True),'M2 C=.1':(.1,True),'M2 C=.03':(.03,True)}
+    if args.cs: variants={f'M1 C={c}':(float(c),False) for c in args.cs.split(',')}
     # Letters
     for target in ('crowd','agent'):
         lab={n:(data[n]['crowd'] if target=='crowd' else v3b.get(n)) for n in ids}; keep=np.array([lab[n] is not None for n in ids])
@@ -87,6 +89,23 @@ def main():
                 out['crop_enc_extreme'].append(float(np.mean((pe[m]<.05)|(pe[m]>.95))))
             res[target][name]={k:round(float(np.mean(v)),4) for k,v in out.items()}|{'crop_bal_by_letter':[round(x,3) for x in out['crop_bal']]}
             print(json.dumps({'target':target,'variant':name,**res[target][name]}),flush=True)
+    if args.cs:   # crowd 16-type head: TF-IDF multinomial (C=4) averaged with the encoder multinomial at each C
+        from pdb_ingest.panel import MBTI
+        keep=np.array([data[n]['crowd'] is not None for n in ids]); y=np.array([data[n]['crowd'] or '' for n in ids]); res['crowd_type']={}
+        for c in [.3]+[float(x) for x in args.cs.split(',')]:
+            Pf=np.zeros((len(ids),16)); Pc=Pf.copy()
+            for tr,te in cv:
+                tr=tr[keep[tr]]; te=te[keep[te]]
+                t=tf().fit([D[k] for k in tr]); mt=LogisticRegression(C=4,max_iter=3000).fit(t.transform([D[k] for k in tr]),y[tr])
+                s=StandardScaler().fit(F[tr]); me=LogisticRegression(C=c,max_iter=3000).fit(s.transform(F[tr]),y[tr]); cols=[MBTI.index(k) for k in mt.classes_]
+                for P,Dx,Ex in ((Pf,[D[k] for k in te],F[te]),(Pc,[C[k] for k in te],Ec[te])):
+                    P[np.ix_(te,cols)]=(mt.predict_proba(t.transform(Dx))+me.predict_proba(s.transform(Ex)))/2
+            idx=np.array([MBTI.index(k) if k else 0 for k in y])
+            sc=lambda P:{'exact':round(float(np.mean(P[keep].argmax(1)==idx[keep])),4),
+                         'top3':round(float(np.mean([i in np.argsort(-p)[:3] for p,i in zip(P[keep],idx[keep])])),4),
+                         'log_loss':round(float(-np.mean(np.log(np.clip(P[keep][np.arange(keep.sum()),idx[keep]],1e-6,1)))),4)}
+            res['crowd_type'][f'C={c}']={'full':sc(Pf),'crop':sc(Pc)}; print(json.dumps({'target':'crowd_type','C':c,**res['crowd_type'][f'C={c}']}),flush=True)
+        args.output.write_text(json.dumps(res,indent=1),encoding='utf-8'); return
     # Big Five (agent IPIP)
     R=np.array([data[n]['ipip'] is not None for n in ids]); res['big5']={}
     for name,(alpha,aug) in {'M0 RidgeCV':(None,False),'M1 alpha=1e3':(1e3,False),'M1 alpha=1e4':(1e4,False),'M2 RidgeCV':(None,True),'M2 alpha=1e3':(1e3,True)}.items():
