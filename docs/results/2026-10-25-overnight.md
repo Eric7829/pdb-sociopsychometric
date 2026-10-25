@@ -141,6 +141,15 @@ The 859-profile cross-validation on real PDB excerpts favours v0.3 on every lett
   - PANDORA's scores come from several different tests that users posted themselves.
   - In this comment-level re-upload, a "user" is a distinct score profile, which can rarely merge two people.
 
+**Essays dataset** (`tools/essays_check.py`): 2,467 student stream-of-consciousness essays (Pennebaker & King, ~660 words each), self-reported Big Five as above/below-median labels. AUC, where .5 is chance; neither model saw these essays:
+
+| | O | C | E | A | N | Mean |
+|---|---|---|---|---|---|---|
+| Panel model | .571 | .580 | .594 | .598 | .602 | **.589** |
+| External DistilBERT | .466 | .561 | .537 | .534 | .516 | .523 |
+
+On self-reflective writing the panel's Big Five transfers to real self-report on **all five traits** (each well above chance with n = 2,467), including Agreeableness, which came out reversed on Reddit comments. Models trained on the Essays data itself usually report binary accuracies around .56–.62, so a model trained only on PDB agent readings landing at AUC ~.59 is in the same range. Genre matters more than the method: Reddit chatter gave .06, self-reflective essays give a consistent, real signal.
+
 This is the first test against real people at scale. It argues for validating on real self-descriptions with real scores before trusting the panel's Big Five beyond PDB.
 
 ## 8. Not done
