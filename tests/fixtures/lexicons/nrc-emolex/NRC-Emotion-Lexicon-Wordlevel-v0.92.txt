@@ -1,0 +1,8 @@
+hate	anger	1
+hate	negative	1
+hate	joy	0
+angry	anger	1
+angry	negative	1
+happy	joy	1
+happy	positive	1
+afraid	fear	1
