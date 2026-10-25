@@ -3,13 +3,15 @@ from pathlib import Path
 DEFAULT_MODEL='intfloat/multilingual-e5-small'
 # Document prefixes the models were trained with; prefix tokens are never pooled.
 JINA='jinaai/jina-embeddings-v5-text-small-classification'
+GTE='Alibaba-NLP/gte-modernbert-base'   # 8192-token ModernBERT encoder, CLS pooling, native transformers support
+REMOTE_CODE=set()   # models needing trust_remote_code; gte-base-en-v1.5's code broke on transformers 5.x and hung the GPU
 PREFIXES={'intfloat/multilingual-e5-small':'passage: ','intfloat/multilingual-e5-base':'passage: ',JINA:'Document: '}
-# Last-token models (decoder embedders) summarise a whole input in its final token, so span-masked mean pooling does not apply:
-# they embed only the pooled text of each segment, chunked.
-POOLING={JINA:'last'}
+# Summary-token models put a whole input's embedding in one token (decoders: the last; gte: CLS), so span-masked mean pooling
+# does not apply: they embed only the pooled text of each segment, chunked.
+POOLING={JINA:'last',GTE:'cls'}
 # Chunk size for last-token models, picked for an 8 GB GPU: attention memory grows ~quadratically without flash attention
 # (2048 tokens: 0.72 s, 2.0 GB; 8192 tokens: 11.6 GB, spilled into system RAM, 171 s).
-CHUNK_TOKENS={JINA:2048}
+CHUNK_TOKENS={JINA:2048,GTE:2048}
 # Matryoshka (MRL) models: the leading k dimensions are themselves a trained embedding, so slicing is a principled way to
 # shrink features for small samples.
 MATRYOSHKA_DIMS={JINA:(32,64,128,256,512,768,1024)}
@@ -89,7 +91,7 @@ def last_token_segments(views,tokenize,embed_ids,*,max_tokens=8192):
 def embed_views(views,encoder,*,normalize_segments=True):
     """Segment results for one profile's encoder views, dispatching on the encoder's pooling type."""
     tokenize,encode,stats=encoder; mx=stats.get('max_tokens',8192)
-    if stats.get('pooling')=='last': return last_token_segments(views,tokenize,encode,max_tokens=mx)
+    if stats.get('pooling') in ('last','cls'): return last_token_segments(views,tokenize,encode,max_tokens=mx)
     return embed_segments(views,tokenize,encode,max_tokens=mx,stride=min(512,mx//4),normalize_segments=normalize_segments)
 
 def profile_vector(segment_results):
@@ -109,29 +111,33 @@ def with_cpu_fallback(gpu,cpu,stats,oom_errors):
             return cpu(ids)
     return encode
 
-def hf_encoder(model_name=DEFAULT_MODEL,device=None,prefix=None):
-    """(tokenize, encode, stats) for a Hugging Face encoder; CUDA fp16 when available, per-window CPU fallback on OOM."""
+def hf_encoder(model_name=DEFAULT_MODEL,device=None,prefix=None,pooling=None):
+    """(tokenize, encode, stats) for a Hugging Face encoder; CUDA fp16 when available, per-window CPU fallback on OOM.
+    pooling='mean' forces span-masked token mean pooling on a summary-token model; its cache name gets a '#mean' suffix."""
     import torch
     from transformers import AutoModel,AutoTokenizer
     device=device or ('cuda' if torch.cuda.is_available() else 'cpu')
     if device=='cuda': torch.cuda.set_per_process_memory_fraction(GPU_MEMORY_FRACTION)
-    tok=AutoTokenizer.from_pretrained(model_name)
-    model=AutoModel.from_pretrained(model_name,torch_dtype=torch.float16 if device=='cuda' else torch.float32).to(device).eval()
-    if POOLING.get(model_name)=='last':
-        prefix=PREFIXES.get(model_name,'') if prefix is None else prefix
-        stats={'cpu_fallbacks':0,'device':device,'model':model_name,'pooling':'last','max_tokens':CHUNK_TOKENS.get(model_name,2048)}
+    remote={'trust_remote_code':True} if model_name in REMOTE_CODE else {}
+    tok=AutoTokenizer.from_pretrained(model_name,**remote)
+    model=AutoModel.from_pretrained(model_name,torch_dtype=torch.float16 if device=='cuda' else torch.float32,**remote).to(device).eval()
+    forced=pooling; pooling=pooling or POOLING.get(model_name)
+    if pooling in ('last','cls'):
+        prefix=PREFIXES.get(model_name,'') if prefix is None else prefix; at=-1 if pooling=='last' else 0
+        stats={'cpu_fallbacks':0,'device':device,'model':model_name,'pooling':pooling,'max_tokens':CHUNK_TOKENS.get(model_name,2048)}
         def tokenize(text): return tok(text,add_special_tokens=False)['input_ids'],[]
         def embed_ids(ids,m=model,dev=device):
             enc=tok(prefix+tok.decode(ids),return_tensors='pt').to(dev)   # the tokenizer adds the model's own special tokens
-            with torch.no_grad(): return m(**enc).last_hidden_state[0,-1].float().cpu().tolist()
+            with torch.no_grad(): return m(**enc).last_hidden_state[0,at].float().cpu().tolist()
         cpu_holder={}
         def on_cpu(ids):
             torch.cuda.empty_cache()
-            cpu_holder.setdefault('m',AutoModel.from_pretrained(model_name,torch_dtype=torch.float32).eval())
+            cpu_holder.setdefault('m',AutoModel.from_pretrained(model_name,torch_dtype=torch.float32,**remote).eval())
             return embed_ids(ids,cpu_holder['m'],'cpu')
         return tokenize,with_cpu_fallback(embed_ids,on_cpu,stats,(torch.cuda.OutOfMemoryError,)),stats
     # Content tokens per window: the model's position limit minus CLS/SEP.
-    cpu_model=None; stats={'cpu_fallbacks':0,'device':device,'model':model_name,'max_tokens':min(tok.model_max_length,8192)-2}
+    cpu_model=None; stats={'cpu_fallbacks':0,'device':device,'model':model_name+('#mean' if forced=='mean' and POOLING.get(model_name) else ''),
+                           'max_tokens':CHUNK_TOKENS.get(model_name,min(tok.model_max_length,8192)-2)}
     def raw_tokenize(text):
         enc=tok(text,add_special_tokens=False,return_offsets_mapping=True)
         return enc['input_ids'],enc['offset_mapping']
@@ -142,7 +148,7 @@ def hf_encoder(model_name=DEFAULT_MODEL,device=None,prefix=None):
     def on_cpu(ids):
         nonlocal cpu_model
         torch.cuda.empty_cache()
-        cpu_model=cpu_model or AutoModel.from_pretrained(model_name,torch_dtype=torch.float32).eval()
+        cpu_model=cpu_model or AutoModel.from_pretrained(model_name,torch_dtype=torch.float32,**remote).eval()
         return run(cpu_model,'cpu',ids)
     return tokenize,with_cpu_fallback(lambda ids:run(model,device,ids),on_cpu,stats,(torch.cuda.OutOfMemoryError,)),stats
 

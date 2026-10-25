@@ -68,9 +68,10 @@ def main():
     p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--db',type=Path,required=True); p.add_argument('--view',default='main',choices=sorted(distill.VIEWS))
     p.add_argument('--output',type=Path,default=Path('data/stage2/compare.json'))
+    p.add_argument('--samples',default='top',help='Comma-separated crawl samples, e.g. top,top2')
     p.add_argument('--matryoshka',default='',help='Comma-separated leading-dimension sizes to also test for MRL encoders, e.g. 64,128,256')
     args=p.parse_args()
-    ipip,modal,docs,encoders=load(readonly_store(args.db),args.view)
+    ipip,modal,docs,encoders=load(readonly_store(args.db),args.view,tuple(args.samples.split(',')))
     if args.matryoshka: encoders=expand_matryoshka(encoders,[int(x) for x in args.matryoshka.split(',')])
     cv=KFold(5,shuffle=True,random_state=0); alphas=np.logspace(-1,4,12); result={'view':args.view,'encoders':list(encoders)}
     def features(ids):
