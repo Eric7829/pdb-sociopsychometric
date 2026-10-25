@@ -183,7 +183,8 @@ function typeCard(key,c,truth,label){
   const vsCrowd=truth!=='crowd'&&c.cv.crowd?` Against the crowd: ${pct(c.cv.crowd.exact)} exact.`:'';
   $('r-'+key+'-note').textContent=(c.top.length>1?`Top 3: ${c.top.map(x=>`${x.type} ${pct(x.p)}`).join(' · ')}. `:'')+
     `Cross-validated against ${label}: right type ${pct(cv.exact)}, top 3 ${pct(cv.top3)} (always guessing the commonest: ${pct(cv.chance)}; n=${cv.n}).`+vsCrowd+
-    (c.contradicts&&c.contradicts.length?` ⚠ The letter bars alone say ${c.letter_type} (${c.contradicts.map(x=>`${x.letter} ${pct(x.p)}`).join(', ')}); the 16-type model outweighed them, mostly because of how often each type occurs in its training labels.`:'');
+    (c.contradicts&&c.contradicts.length?` ⚠ The letter bars alone say ${c.letter_type} (${c.contradicts.map(x=>`${x.letter} ${pct(x.p)}`).join(', ')}); the 16-type model outweighed them, mostly because of how often each type occurs in its training labels.`:'')+
+    (c.neutral?` Prior-neutral: ${c.neutral.type} (top 3: ${c.neutral.top.map(x=>`${x.type} ${pct(x.p)}`).join(' · ')}). This ignores how common each type is among PDB profiles (about 70% N), so it is fairer to people unlike PDB's population`+(c.neutral.cv&&c.neutral.cv[truth]?`; cross-validated on PDB it is right ${pct(c.neutral.cv[truth].exact)} of the time, top 3 ${pct(c.neutral.cv[truth].top3)}.`:'.'):'');
   const rows={};Object.entries(c.letters).forEach(([pair,p],i)=>rows[pair]={p_first:p,cv:{balanced_accuracy:cv.letters_balanced[i],n:cv.n}});
   letterRows('r-'+key+'-letters',rows);
 }

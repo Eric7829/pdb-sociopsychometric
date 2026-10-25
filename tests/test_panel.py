@@ -47,6 +47,8 @@ async def test_assessor_predicts_with_cv_accuracy(tmp_path):
     r=a.assess('I love to lead and plan, I organize teams and I always plan to win. ENTJ forever.')
     assert set(r['big5'])==set('OCEAN') and all(0<=v['percentile']<=100 and v['low']<=v['percentile']<=v['high'] for v in r['big5'].values())
     c=r['mbti']['crowd']; assert c['type'][0]=='E' and c['cv']['crowd']['letters_balanced'][0]>.9 and len(c['top'])==3
+    assert c['neutral']['type'] in panel.MBTI and len(c['neutral']['top'])==3 and 'crowd' in c['neutral']['cv']
+    assert r['mbti']['agent']['neutral'] is None   # letters only: no type prior to remove
     assert len(c['letter_type'])==4 and isinstance(c['contradicts'],list) and all(0<=v['pdb_percentile']<=100 for v in r['big5'].values())
     song=chr(10).join(['this could be the day','we fight until the end']*6)
     assert any('repeat' in w for w in a.assess(song)['not_self_description'])

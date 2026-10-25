@@ -201,8 +201,12 @@ class Assessor:
             """Letter heads (+ optional 16-type head) pooled by text length; CV scored against each named truth."""
             heads,loof=fit_letters(sub,letter_p); L=letters_to_types(np,loof)
             types,toof=fit_types(sub,type_t) if type_t is not None else (None,None)
-            P=pool(np,L,toof,letter_weight(np,[words(docs[n]) for n in sub])) if types else L
-            return {'letters':heads,'types':types,'cv':{name:scores(P,t) for name,t in truths.items()},'n':len(sub)}
+            w=letter_weight(np,[words(docs[n]) for n in sub]); P=pool(np,L,toof,w) if types else L
+            out={'letters':heads,'types':types,'cv':{name:scores(P,t) for name,t in truths.items()},'n':len(sub),'prior':None}
+            if types:   # prior-neutral headline: the 16-type head divided by its training type frequencies before pooling
+                out['prior']=np.asarray(type_t).mean(0)+1e-3; Tn=toof/out['prior']; Tn/=Tn.sum(1,keepdims=True)
+                out['cv_neutral']={name:scores(pool(np,L,Tn,w),t) for name,t in truths.items()}
+            return out
         def letter_onehot(types): return np.array([[t[i]==a for i,(a,_) in enumerate(LETTERS)] for t in types],dtype=float)
         # Crowd card: modal crowd vote, letters + 16-type head.
         sub=[n for n in ids if 'mbti_counts' in rows[n]]; crowd=[modal(rows[n]['mbti_counts']) for n in sub]
@@ -257,12 +261,16 @@ class Assessor:
         def card(c):
             L=np.array([[float(binary_prob(c['letters'][a+b],D,E)[0]) if a+b in c['letters'] else .5 for a,b in LETTERS]])
             P=letters_to_types(np,L)
-            if c['types']: P=pool(np,P,type_probs(np,c['types'],D,E),letter_weight(np,n_words))
+            neutral=None
+            if c['types']:
+                T=type_probs(np,c['types'],D,E); Tn=T/c['prior']; Tn/=Tn.sum(1,keepdims=True); L4=P
+                P=pool(np,L4,T,letter_weight(np,n_words)); Pn=pool(np,L4,Tn,letter_weight(np,n_words))[0]; tn=np.argsort(-Pn)[:3]
+                neutral={'type':MBTI[tn[0]],'top':[{'type':MBTI[i],'p':float(Pn[i])} for i in tn],'cv':c.get('cv_neutral')}
             top=np.argsort(-P[0])[:3]; head=MBTI[top[0]]
             letter_type=''.join(a if L[0,i]>=.5 else b for i,(a,b) in enumerate(LETTERS))
             clash=[{'letter':letter_type[i],'p':float(max(L[0,i],1-L[0,i]))} for i in range(4) if abs(L[0,i]-.5)>=.2 and head[i]!=letter_type[i]]
             return {'type':head,'top':[{'type':MBTI[i],'p':float(P[0,i])} for i in top],'letter_type':letter_type,'contradicts':clash,
-                    'letters':{a+b:float(L[0,i]) for i,(a,b) in enumerate(LETTERS)},'cv':c['cv'],'n':c['n']}
+                    'letters':{a+b:float(L[0,i]) for i,(a,b) in enumerate(LETTERS)},'cv':c['cv'],'n':c['n'],'neutral':neutral}
         agent=card(self.agent); agent['source']=self.agent['source']
         fp,rep=style_stats(text); genre=[]
         if rep>=.2: genre.append(f'{rep:.0%} of lines repeat, like lyrics or a poem')
