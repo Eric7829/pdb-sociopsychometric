@@ -1,9 +1,10 @@
 """Frozen-encoder segment embeddings, pooled only over encoder_view's pooled character ranges (torch imported lazily)."""
 from pathlib import Path
-DEFAULT_MODEL='intfloat/multilingual-e5-small'
+E5='intfloat/multilingual-e5-small'
 # Document prefixes the models were trained with; prefix tokens are never pooled.
 JINA='jinaai/jina-embeddings-v5-text-small-classification'
 GTE='Alibaba-NLP/gte-modernbert-base'   # 8192-token ModernBERT encoder, CLS pooling, native transformers support
+DEFAULT_MODEL=GTE   # beat e5-small on Big Five r: full profiles .574 vs .548, 250-word excerpts .346 vs .298 (2026-10-25)
 REMOTE_CODE=set()   # models needing trust_remote_code; gte-base-en-v1.5's code broke on transformers 5.x and hung the GPU
 PREFIXES={'intfloat/multilingual-e5-small':'passage: ','intfloat/multilingual-e5-base':'passage: ',JINA:'Document: '}
 # Summary-token models put a whole input's embedding in one token (decoders: the last; gte: CLS), so span-masked mean pooling

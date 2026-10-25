@@ -23,7 +23,7 @@ from pdb_ingest import embed,panel
 from pdb_ingest.encoder_text import encoder_view
 from pdb_ingest.panel import MBTI,LETTERS,letters_to_types,pool,soft_fit,type_probs,prior_correct,l2
 
-CACHE=Path('data/stage2/emb/intfloat--multilingual-e5-small/main'); CROP_WORDS=250
+CACHE=Path('data/stage2/emb')/embed.model_slug(embed.DEFAULT_MODEL)/'main'; CROP_WORDS=250
 
 def self_votes(conn):
     out={}

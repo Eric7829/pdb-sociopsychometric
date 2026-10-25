@@ -72,6 +72,8 @@ def main():
     p.add_argument('--matryoshka',default='',help='Comma-separated leading-dimension sizes to also test for MRL encoders, e.g. 64,128,256')
     args=p.parse_args()
     ipip,modal,docs,encoders=load(readonly_store(args.db),args.view,tuple(args.samples.split(',')))
+    # Encoders cached for only part of these profiles (another sample, or an older scrubber) would shrink the shared set; drop them.
+    need=set(ipip)|set(modal); encoders={k:v for k,v in encoders.items() if len(need&set(v))>=.9*len(need)}
     if args.matryoshka: encoders=expand_matryoshka(encoders,[int(x) for x in args.matryoshka.split(',')])
     cv=KFold(5,shuffle=True,random_state=0); alphas=np.logspace(-1,4,12); result={'view':args.view,'encoders':list(encoders)}
     def features(ids):

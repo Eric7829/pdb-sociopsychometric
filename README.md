@@ -95,7 +95,7 @@ A local web page that only listens on 127.0.0.1. It opens the database read-only
 - Big Five intercorrelations
 - the MBTI × Enneagram bundling heatmap
 
-The **assessor** scores a typed self-description with typology labels scrubbed. It averages TF-IDF and `multilingual-e5-small` models trained at startup on the chosen samples. Each output comes with its cross-validated accuracy:
+The **assessor** scores a typed self-description with typology labels scrubbed. It averages TF-IDF and `gte-modernbert-base` models trained at startup on the chosen samples. Each output comes with its cross-validated accuracy:
 - **Big Five:** percentiles with ±1 cross-validated error bands.
 - **Crowd MBTI type:** the top 3 of 16 types, as PDB voters would type the text. A 16-type head distilled from Jev (below) is pooled with four letter heads (log-linear pool, letter weight 0.4).
 - **Crowd MBTI letters and Enneagram core.**
@@ -138,7 +138,7 @@ The encoder scrubber also removes Socionics codes, SLOAN codes and function-posi
 - `tools/compare_text_models.py`: agent IPIP Spearman r and crowd letter balanced accuracy. `--matryoshka 64,128,...` adds sliced variants.
 - `tools/compare_type_models.py --encoder SLUG [--dims K]`: 16-type models.
 
-On the Top sample, `multilingual-e5-small` stacked with TF-IDF stays the default, with mean IPIP r 0.50. The others scored lower:
+`Alibaba-NLP/gte-modernbert-base` (CLS pooling, 2048-token chunks) is the default since 2026-10-25. On Top + top2, stacked with TF-IDF, it beat `multilingual-e5-small` on agent-IPIP Spearman r (.562 vs .539 in `compare_text_models`; .574 vs .548 full and .346 vs .298 on 250-word excerpts in a matched check) and on letters (.593 vs .579 balanced accuracy, S/N .579 vs .555). Mean pooling scored the same. `gte-base-en-v1.5` is not usable: its remote model code fails on transformers 5.x and hung the GPU. Earlier comparisons, on the Top sample against e5-small (mean IPIP r 0.50):
 - ModernBERT-base: 0.46 stacked.
 - Jina v5 text-small-classification: 0.47 stacked, 14.8% vs 16.6% 16-type. It used 2048-token chunks to stay inside 8 GB of VRAM.
 - Jina Matryoshka slices (32–768 dims): worse at every size.
