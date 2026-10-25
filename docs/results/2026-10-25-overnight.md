@@ -163,7 +163,29 @@ The panel matches the trained 2007 baseline overall without seeing a single essa
 
 This is the first test against real people at scale. It argues for validating on real self-descriptions with real scores before trusting the panel's Big Five beyond PDB.
 
-## 8. Not done
+## 8. Do the models think in cognitive functions?
+
+**Runner-up structure** among one-letter neighbours. In function theory the E/I flip shares both functions (INTP↔ENTP), the S/N flip shares the dominant, the T/F flip shares the auxiliary, and the J/P flip shares none (INTP↔INTJ):
+
+| Source | E/I | S/N | T/F | J/P |
+|---|---|---|---|---|
+| Crowd: modal vs runner-up vote (420) | **30%** | 26% | 23% | **20%** |
+| Jev: top-1 vs top-2 (683) | 27% | 20% | 23% | 30% |
+| Panel: errors vs crowd (306) | 29% | 16% | 21% | 34% |
+
+PDB voters follow function theory: mirror pairs are the commonest runner-up and J/P flips the rarest, at about p ≈ .02 on 420 profiles. Jev and the panel confuse along letters, mostly J/P, the weakest letter at 42% error.
+
+**Training the crowd card on the full vote distribution** (`tools/vote_soft_experiment.py`, 5-fold CV):
+
+| Targets | Full exact / top-3 | Excerpt exact / top-3 / log loss | J/P share of one-letter errors (full / excerpt) | Portraits exact / top-3 |
+|---|---|---|---|---|
+| modal vote (v0.3) | 19.0% / 44.9% | **15.1% / 38.4% / 2.593** | 34% / 29% | 22% / 53% |
+| vote distribution | 19.5% / 46.3% | 14.8% / 35.8% / 2.624 | 33% / 27% | 25% / 69% |
+| 50/50 mix | **20.5% / 46.2%** | 15.2% / 37.1% / 2.608 | 34% / 27% | 22% / 63% |
+
+Not shipped. The soft targets help a little on full profiles and portraits but cost top-3 accuracy on excerpts, which is what the panel actually sees. They also barely move the J/P share of errors. Crowd votes agree with the modal type about 86% of the time, so the distributions add little, and the text models' confusions come from per-letter evidence in the writing, which vote structure doesn't change.
+
+## 9. Not done
 
 - **Reddit "type me" thread:** Reddit returns 403 to automated requests.
 - **Kaggle MBTI dataset:** needs a logged-in Kaggle account, which I can't create or use.
