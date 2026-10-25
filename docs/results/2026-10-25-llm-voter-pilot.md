@@ -29,3 +29,21 @@ $0.0023, above the pilot's $0.0014, because later profiles are longer.
 
 The pilot's 36% was on the high side, as 25 profiles would predict. It still doubles our models' exact match. Recall
 on crowd S types is 49% (N 81%), far above our small models, which almost never call S.
+
+## Local student trained on the teacher's labels: nothing ships
+
+`tools/teacher_student.py`, 778 profiles, 5-fold CV, panel heads (TF-IDF + gte). Scored against the crowd modal type.
+
+| Trained on | Full exact | Full top-3 | Excerpt exact | Excerpt top-3 | Excerpt S recall | Agrees with teacher (full) |
+|---|---|---|---|---|---|---|
+| crowd (v0.3) | 17.7% | 43.6% | 16.2% | 37.4% | 27% | 20% |
+| teacher | 14.1% | 35.0% | 13.6% | 32.6% | 50% | 32% |
+| 50/50 mix | 15.9% | 43.3% | 14.3% | 35.2% | 41% | 28% |
+
+Essays Big Five (median-split accuracy / AUC): agent IPIP 56.4% / .587, teacher 56.7% / .596, both 56.7% / .596.
+
+- The students reproduce the teacher's S calls (excerpt S recall 27% to 50%) and its ESFJ habit, but not its accuracy:
+  they agree with the teacher only 22-32% of the time. The teacher's judgement uses function-level reading of a whole
+  profile; 778 examples of one noisy sample each are not enough for bag-of-words and embedding heads to copy it.
+- Big Five from teacher labels gains 0.4 points on Essays, short of the 1-point bar.
+- By the plan's rule the panel stays at v0.3.
