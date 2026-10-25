@@ -185,7 +185,28 @@ PDB voters follow function theory: mirror pairs are the commonest runner-up and 
 
 Not shipped. The soft targets help a little on full profiles and portraits but cost top-3 accuracy on excerpts, which is what the panel actually sees. They also barely move the J/P share of errors. Crowd votes agree with the modal type about 86% of the time, so the distributions add little, and the text models' confusions come from per-letter evidence in the writing, which vote structure doesn't change.
 
-## 9. Not done
+## 9. Psycholinguistic features and emotional-sentence filtering: nothing ships
+
+Two ideas from the Essays literature, tested with `tools/upgrade_eval.py` against a rule fixed in advance in `docs/superpowers/plans/2026-10-25-psycholinguistic-upgrades.md`:
+- **Features:** a third model half on 34 word-list features (pronoun and function-word rates, NRC emotions, Brysbaert concreteness, Glasgow norms, style), as in Mairesse et al. 2007.
+- **Filter:** keep only sentences with an emotion word before TF-IDF and the encoder, as in Majumder et al. 2017.
+
+The rule: a variant ships only if Essays accuracy rises ≥0.5 points or excerpt Big Five r rises ≥.01, no PDB metric drops by more than .005, and the leak shift grows by ≤.01.
+
+| Variant | Big Five r (full / excerpt) | Crowd letters | Agent letters | Crowd type, excerpt (exact / top-3) | Essays acc / AUC | PANDORA r | Portrait S/N | Leak shift |
+|---|---|---|---|---|---|---|---|---|
+| baseline (v0.3) | .569 / .342 | .618 / .576 | .670 / .626 | 15.1% / 38.2% | 56.1% / .586 | .044 | .75 | .036 |
+| features | .556 / .348 | .624 / .580 | .673 / .609 | 14.1% / 37.2% | 56.6% / .590 | .052 | .75 | .026 |
+| filter | .542 / .342 | .591 / .567 | .651 / .608 | 15.2% / 37.0% | 56.4% / .589 | .067 | .56 | .031 |
+| features+filter | .531 / .338 | .597 / .565 | .658 / .602 | 14.3% / 36.1% | 56.3% / .592 | .079 | .63 | .020 |
+
+- **Features** cleared the gain bar on Essays (+0.5 points) but cost full-profile Big Five r (−.014), excerpt agent letters (−.017) and excerpt type accuracy (−1 point). It does not ship.
+- **Filter** hurts almost everywhere on PDB and drops portrait S/N from .75 to .56. Throwing away non-emotional sentences throws away the habit and preference talk that carries S/N.
+- PANDORA r rises with both (.04 to .08), but it stays near zero. The lexicon features cut the leak shift, which is a mild plus without a matching accuracy gain.
+
+The lexicons and `lexicons.py` stay in the repo for later use, but the panel is unchanged at v0.3 and there is no v0.4 tag.
+
+## 10. Not done
 
 - **Reddit "type me" thread:** Reddit returns 403 to automated requests.
 - **Kaggle MBTI dataset:** needs a logged-in Kaggle account, which I can't create or use.
