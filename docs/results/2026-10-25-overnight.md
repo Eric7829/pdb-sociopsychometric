@@ -91,7 +91,23 @@ The 859-profile cross-validation on real PDB excerpts favours v0.3 on every lett
 - **The letter heads read Sensing fine on portraits** (S/N .72–.78 in most rows). The headline type loses S because the 16-type head carries PDB's base rates (about 70% of crowd types are N) and outvotes the letters in the pool. Configurations that let more S through (C=.03, w=1) do so by trusting the overconfident encoder again, and pay for it on real excerpts.
 - So the remaining S problem is a **prior** question, not a weighting one. PDB's population is N-heavy, which helps in-sample accuracy but biases the headline for a general reader (most people are S).
 
-## 5. Not done
+## 5. Agent S/N as a teacher: no real gain
+
+`tools/sn_teacher_experiment.py` tried two ways to use the DeepSeek agent's Form M v3b S/N for the crowd card: blending the two heads' probabilities (b = agent share), and training the crowd S/N head on soft targets a · crowd + (1 − a) · agent. Results are 5-fold CV over 795 profiles, plus 32 portraits:
+
+| Variant | S/N vs crowd (full / excerpt) | S/N vs creator's own badge (excerpt) | S/N on portraits | Portrait headline: S types predicted |
+|---|---|---|---|---|
+| crowd only (v0.3) | .588 / .563 | .542 | .750 | 0 |
+| blend b=.5 | .552 / .535 | .573 | .688 | 0 |
+| blend b=1 (agent only) | .532 / .515 | .546 | .719 | 2 |
+| soft a=.75 | .580 / .573 | .566 | .781 | 0 |
+| soft a=.5 | .585 / .561 | .570 | .750 | 3 |
+
+- The agent's S/N **disagrees with how PDB voters assign S/N** (agent-only scores .515 against the crowd on excerpts). It sits a little closer to creators' own badges (.546–.573 vs .542), but every difference here is one or two points, within the noise for 197 S-typed profiles.
+- Soft targets at a=.75 are the best variant, but by about one point, so v0.3 is unchanged.
+- **The headline still predicts almost no S on portraits whatever the S/N letter does**, which confirms that the 16-type head's N-heavy prior, not S/N detection, decides the headline.
+
+## 6. Not done
 
 - **Reddit "type me" thread:** Reddit returns 403 to automated requests.
 - **Kaggle MBTI dataset:** needs a logged-in Kaggle account, which I can't create or use.
