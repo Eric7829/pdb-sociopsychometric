@@ -75,7 +75,23 @@ The panel's short-text warning now quotes these numbers: 15% exact, 38% top-3, B
 
 The 859-profile cross-validation on real PDB excerpts favours v0.3 on every letter. The 16 portraits are idealized type descriptions rewritten by an LLM, so v0.3 ships, but the crowd card no longer predicts S on them. A tunable TF-IDF/encoder weight (now a fixed 50/50 average) is the next experiment, judged on both tests.
 
-## 4. Not done
+## 4. TF-IDF vs encoder weighting
+
+`tools/weight_experiment.py` scored p = w · p_encoder + (1 − w) · p_TF-IDF for encoder C in {.003, .01, .03} and w in {.3, .5, .7, .85, 1}. It used held-out 250-word excerpts (5-fold CV, 859 profiles) and 32 portraits (16 first-person, 16 third-person, strict scrub), with models fitted on all profiles. Selected rows:
+
+| Config | Excerpt crowd letters | Excerpt agent letters | Excerpt type exact / top-3 | Portrait crowd letters (S/N) | Portrait headline type exact / S types predicted (of 16) |
+|---|---|---|---|---|---|
+| C=.003 w=.3 | .565 | .604 | 15.7% / 38.4% | .789 (.72) | 22% / 0 |
+| **C=.003 w=.5 (v0.3)** | **.576** | **.626** | 15.1% / 38.2% | .797 (.75) | 22% / 0 |
+| C=.003 w=.7 | .581 | .628 | 13.3% / 37.5% | .781 (.75) | 19% / 1 |
+| C=.01 w=.85 | .570 | .615 | 13.3% / 34.8% | .766 (.69) | 22% / 5 |
+| C=.03 w=1 | .562 | .601 | 13.6% / 32.3% | .766 (.69) | 28% / 11 |
+
+- **The 50/50 average at C=.003 is already near the best on excerpts**, so the weights stay.
+- **The letter heads read Sensing fine on portraits** (S/N .72–.78 in most rows). The headline type loses S because the 16-type head carries PDB's base rates (about 70% of crowd types are N) and outvotes the letters in the pool. Configurations that let more S through (C=.03, w=1) do so by trusting the overconfident encoder again, and pay for it on real excerpts.
+- So the remaining S problem is a **prior** question, not a weighting one. PDB's population is N-heavy, which helps in-sample accuracy but biases the headline for a general reader (most people are S).
+
+## 5. Not done
 
 - **Reddit "type me" thread:** Reddit returns 403 to automated requests.
 - **Kaggle MBTI dataset:** needs a logged-in Kaggle account, which I can't create or use.
