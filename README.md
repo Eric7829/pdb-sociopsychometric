@@ -89,21 +89,27 @@ rtk .venv\Scripts\python -m pdb_ingest panel --db data/pdb-top.duckdb --samples 
 ```
 
 A local web page that only listens on 127.0.0.1. It opens the database read-only and shows aggregate charts only:
-- crowd vs agent MBTI and Enneagram distributions
+- crowd vs agent MBTI and Enneagram distributions (the agent's MBTI comes from Form M v3b when it covers at least 200 profiles, else prompt A; the legend names the source)
 - agent Big Five percentile histograms
 - crowd vote share vs Big Five correlations
 - Big Five intercorrelations
 - the MBTI × Enneagram bundling heatmap
 
 The **assessor** scores a typed self-description with typology labels scrubbed. It averages TF-IDF and `gte-modernbert-base` models trained at startup on the chosen samples. Each output comes with its cross-validated accuracy:
-- **Big Five:** percentiles with ±1 cross-validated error bands.
-- **Crowd MBTI type:** the top 3 of 16 types, as PDB voters would type the text. A 16-type head distilled from Jev (below) is pooled with four letter heads (log-linear pool, letter weight 0.4).
-- **Crowd MBTI letters and Enneagram core.**
-- **Agent MBTI and Enneagram:** the LLM agent's Form M result and self-typed core.
+- **Big Five:** percentiles with ±1 cross-validated error bands, trained on the agent's IPIP (prompt A, 855 profiles).
+- **Three MBTI cards**, each with letter bars, its top 3 and its own cross-validated accuracy:
+  - **PDB crowd:** letter heads and a 16-type head trained on the crowd's modal vote.
+  - **Jev 1.14:** trained on Jev's probabilities (soft letter marginals and all 16 types); scored against Jev and against the crowd.
+  - **DeepSeek agent:** letter heads trained on the agent's Form M v3b type (680 profiles).
+
+  Letters and the 16-type head are pooled log-linearly, with the letter weight running from 0.8 at 300 words or fewer to 0.4 at 2,000 or more.
+- **Enneagram core**, crowd and agent.
 
 Assessed text is never stored or logged.
 
-Predictions mimic the *agent's* reading for the Big Five and the *crowd's* for types. The agent's reading is skewed in this sample (high O and N, low C, E and A), so new texts are pulled toward that profile. Startup trains every head with 5-fold CV, which takes about 7 minutes on Top + top2. The first start also embeds any uncached profiles. The panel opens the database read-only, but DuckDB on Windows still cannot share the file with a running writer (crawl, assess, annotate). Point `--db` at a copy, or stop the writer.
+The agent's reading is skewed in this sample (high O and N, low C, E and A), so Big Five predictions for new texts are pulled toward that profile. Startup trains every head with 5-fold CV, which takes about 10 minutes on Top + top2.
+
+On 16 official-style type portraits rewritten in first person (`tools/portrait_test.py`, `tools/portrait_first_person.py`; portraits stay local), the gte-based Jev card gets 10 of 16 types exactly and 14 of 16 in its top 3, with S/N right 75% of the time; the crowd and agent cards get 5 of 16. The same test with e5-small found almost no Sensing signal (S/N about 50%). The first start also embeds any uncached profiles. The panel opens the database read-only, but DuckDB on Windows still cannot share the file with a running writer (crawl, assess, annotate). Point `--db` at a copy, or stop the writer.
 
 ## Jev teacher (16-type labels)
 
@@ -138,7 +144,7 @@ The encoder scrubber also removes Socionics codes, SLOAN codes and function-posi
 - `tools/compare_text_models.py`: agent IPIP Spearman r and crowd letter balanced accuracy. `--matryoshka 64,128,...` adds sliced variants.
 - `tools/compare_type_models.py --encoder SLUG [--dims K]`: 16-type models.
 
-`Alibaba-NLP/gte-modernbert-base` (CLS pooling, 2048-token chunks) is the default since 2026-10-25. On Top + top2, stacked with TF-IDF, it beat `multilingual-e5-small` on agent-IPIP Spearman r (.562 vs .539 in `compare_text_models`; .574 vs .548 full and .346 vs .298 on 250-word excerpts in a matched check) and on letters (.593 vs .579 balanced accuracy, S/N .579 vs .555). Mean pooling scored the same. `gte-base-en-v1.5` is not usable: its remote model code fails on transformers 5.x and hung the GPU. Earlier comparisons, on the Top sample against e5-small (mean IPIP r 0.50):
+`Alibaba-NLP/gte-modernbert-base` (CLS pooling, 2048-token chunks) is the default since 2026-10-25. On Top + top2, stacked with TF-IDF, it beat `multilingual-e5-small` on agent-IPIP Spearman r (.562 vs .539 in `compare_text_models`; .574 vs .548 full and .346 vs .298 on 250-word excerpts in a matched check) and on letters (.593 vs .579 balanced accuracy, S/N .579 vs .555). Mean pooling scored the same. `gte-base-en-v1.5` is not usable: its remote model code fails on transformers 5.x, and on the GPU the resulting kernel fault hard-locked the PC. Smoke-test any new encoder on the CPU first (`CUDA_VISIBLE_DEVICES=`) and avoid unpinned `trust_remote_code` models. Earlier comparisons, on the Top sample against e5-small (mean IPIP r 0.50):
 - ModernBERT-base: 0.46 stacked.
 - Jina v5 text-small-classification: 0.47 stacked, 14.8% vs 16.6% 16-type. It used 2048-token chunks to stay inside 8 GB of VRAM.
 - Jina Matryoshka slices (32–768 dims): worse at every size.
@@ -153,7 +159,7 @@ rtk .venv\Scripts\python -m pdb_ingest assess 1912391 --runs 3 --provider <upstr
 ```
 
 `--prompt-version` picks the prompt:
-- `stage3-v1` (default): first-person persona. All `top` profiles have a run, about $0.009 per profile.
+- `stage3-v1` (default): first-person persona. All `top` and `top2` profiles have a run, about $0.009 per profile.
 - `stage3-predict-v1`: third-person "predict how this person answered".
 - `stage3-predict-v2`: lean third person, 4 calls instead of 8.
 
@@ -161,7 +167,25 @@ Analyses group runs by prompt version, so train on one version only. `--profiles
 
 The default model is `deepseek/deepseek-v4-flash` via OpenRouter. The key comes from `OPEN_ROUTER_API_KEY` or `OPEN_ROUTER_API_KEY.txt` (git-ignored), and is never logged or stored. `--runs N` keeps adding runs until each profile has N complete ones for the same model, prompt version and text view, with seeds offset per run. `--provider` defaults to `deepinfra/fp8`: of the cheap fp8 upstreams tested, it was the only one that honoured both forced `tool_choice` and `seed`, and its prefix cache hit (second call 99% cached, 77% cheaper). `--provider any` lets OpenRouter route each call, so weights can differ between calls and the cache rarely hits. Profiles below `--min-words` (default 200) are skipped. HTTP, auth and credit failures stop the invocation.
 
+Only three OpenRouter hosts of `deepseek-v4-flash` accept the forced, named tool calls with these schemas: `deepinfra/fp8`, `cloudflare` (about 2× the cost per profile) and `wafer/mxfp4`. The cheaper fp8 hosts are removed by OpenRouter's tool-compatibility filter. DeepInfra's shared pool sometimes returns `engine_overloaded` 429s for long stretches.
+
 Stored: `agent_runs` (model, prompt version, seed, corpus hash/size, cost, error), `agent_calls` (every attempt's prompt, arguments, reasoning, provider and usage), and `psychometric_evaluations` (one row per complete run: agent self-type, Form M type and thetas, IPIP domains/facets with percentiles, raw responses, and response-style diagnostics such as neutral and extreme answer shares).
+
+## Agent MBTI simulation (Form M v2, v3, v3b)
+
+Prompt A's Form M answers are caricatures: 46–88% of thetas sit at the ±3 cap (every item answered one way), 39% of profiles come out INFP, and the letters are bundled (N, F and P correlate .35–.43, against near zero in the crowd's votes). The agent's IPIP is unimodal, because a 24-item sum over six facets and reverse-keyed items does not saturate like Form M's maximum-likelihood theta. `tools/formm_v2.py` re-runs only Form M with prompts that answer from the person's self-image after recalling a concrete moment, blinded to what is measured: scrubbed text, no mention of MBTI or types, and items shuffled and relabelled. Results are cached in `data/stage2/formm-<version>/`, not the database.
+
+| Variant | Design | Cost per profile |
+|---|---|---|
+| v2 | 4 mixed blocks | $0.0036 |
+| v3 | one item per call, plus an anti-halo instruction (traits are independent) | $0.048 |
+| v3b | v3's prompt, 4-item blocks with one item per dichotomy, corpus capped at 8,000 words (`--max-words 8000 --tag=-cap8k`) | $0.009 DeepInfra, $0.018 Cloudflare |
+
+v3b on 680 profiles, against prompt A on the same profiles: thetas at ±3 fell from 49/83/60/62% to 29/39/30/34% (E/I, S/N, T/F, J/P), INFP from 39% to 24%, and the largest letter intercorrelation from .42 to .35. Crowd agreement did not change (31.6% vs 31.8%), and the Big Five gap to the 2009 Form M table widened slightly (.13 vs .15). A +5-point crowd gain seen on the first 100 profiles was noise.
+
+The 8,000-word cap changed 5 of 23 long profiles' types (a same-prompt rerun with another seed changed 0 of 10), without changing crowd agreement (`tools/formm_agreement.py`). `tools/mbti_big5.py` compares agent and crowd MBTI vs Big Five correlations with observed Form M data: the MBTI Form M Manual Supplement (Schaubhut, Herk & Thompson, CPP 2009), Table 11, 185 adults. The MBTI Manual's NEO table (3rd edition, Table 9.4) uses Form G, not Form M. `tools/polarization.py` tests what drives preference clarity.
+
+An independent review by Gemini 4 Argon of the "actual type" question is in [docs/results/2026-10-24-argon-review.md](docs/results/2026-10-24-argon-review.md), with verification notes.
 
 ## Verify
 
