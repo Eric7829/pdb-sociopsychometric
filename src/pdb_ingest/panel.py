@@ -4,6 +4,7 @@ from collections import Counter
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 import json
 from pathlib import Path
+import re
 from .audits import letter_share,spearman
 from .battery import load_ipip
 from .encoder_text import clean,encoder_view
@@ -18,6 +19,14 @@ SAMPLE_JOIN="LEFT JOIN crawl_queue q ON q.profile_num=p.profile_num"
 JEV_LABELS=Path('data/stage2/llm/typesafe--jev-1.14')
 AGENT_FORMM=Path('data/stage2/formm-v3b-cap8k')   # agent Form M v3b results (tools/formm_v2.py); prompt A's form_m if too few
 ABLATION=Path('data/stage2/type_ablation.json')
+
+FIRST_PERSON=frozenset("i me my mine myself i'm im i've ive i'd i'll".split())
+
+def style_stats(text):
+    """(share of first-person words, share of repeated lines) of a raw text: cues that it is not a self-description."""
+    toks=re.findall(r"[a-z']+",text.lower()); lines=[l.strip().lower() for l in text.splitlines() if l.strip()]
+    fp=sum(t in FIRST_PERSON for t in toks)/max(len(toks),1)
+    return fp,(1-len(set(lines))/len(lines) if len(lines)>=8 else 0.0)
 
 def letter_weight(np,n_words):
     """Weight of the letter heads in the pool: 0.8 at <=300 words, 0.4 at >=2000 (tools/type_ablation.py: on 250-word texts
@@ -145,13 +154,14 @@ class Assessor:
         def data(sub): return [docs[n] for n in sub],l2(np,[vecs[n] for n in sub])
         cv=KFold(folds,shuffle=True,random_state=0)
         reg_ids=[n for n in ids if 'ipip' in rows[n]]; D,E=data(reg_ids)
-        self.ipip={}; self.ipip_cv={}; norms=load_ipip().load_norms()['scales']
+        self.ipip={}; self.ipip_cv={}; self.ipip_sample={}; norms=load_ipip().load_norms()['scales']
+        fp=[style_stats(docs[n])[0] for n in ids]; self.first_person_p5=float(np.quantile(fp,.05)) if fp else 0.0
         for k in DOMAINS:
             y=np.array([rows[n]['ipip'][k] for n in reg_ids])
             mt,me=make_pipeline(tfidf(),RidgeCV(alphas=alphas)),make_pipeline(StandardScaler(),RidgeCV(alphas=alphas))
             pred=(cross_val_predict(mt,D,y,cv=cv)+cross_val_predict(me,E,y,cv=cv))/2
             self.ipip_cv[k]={'spearman':spearman(list(pred),list(y)),'rmse':float(np.sqrt(np.mean((pred-y)**2))),'n':len(y)}
-            self.ipip[k]=(mt.fit(D,y),me.fit(E,y),norms[k])
+            self.ipip[k]=(mt.fit(D,y),me.fit(E,y),norms[k]); self.ipip_sample[k]=np.sort(y)
         def fit_letters(sub,P):
             """Per-letter heads trained on (n,4) first-letter probabilities P (0/1 for hard labels, a teacher's marginals for soft
             ones); returns {pair: models} and out-of-fold probabilities. Letters with too little of one class are left out."""
@@ -230,8 +240,9 @@ class Assessor:
         big5={}
         for k,(mt,me,norm) in self.ipip.items():
             raw=float((mt.predict(D)[0]+me.predict(E)[0])/2); rmse=self.ipip_cv[k]['rmse']
+            sample=self.ipip_sample[k]; pdb=100*(np.searchsorted(sample,raw,'left')+np.searchsorted(sample,raw,'right'))/2/len(sample)
             big5[k]={'name':DOMAIN_NAMES[k],'raw':raw,'percentile':percentile(raw,norm),'low':percentile(raw-rmse,norm),
-                     'high':percentile(raw+rmse,norm),'cv':self.ipip_cv[k]}
+                     'high':percentile(raw+rmse,norm),'pdb_percentile':float(pdb),'cv':self.ipip_cv[k]}
         def cores(head,reason):
             if head is None: return {'unavailable':reason}
             mt,me,names,cv_=head; probs=(mt.predict_proba(D)[0]+me.predict_proba(E)[0])/2
@@ -240,11 +251,16 @@ class Assessor:
             L=np.array([[float(binary_prob(c['letters'][a+b],D,E)[0]) if a+b in c['letters'] else .5 for a,b in LETTERS]])
             P=letters_to_types(np,L)
             if c['types']: P=pool(np,P,type_probs(np,c['types'],D,E),letter_weight(np,n_words))
-            top=np.argsort(-P[0])[:3]
-            return {'type':MBTI[top[0]],'top':[{'type':MBTI[i],'p':float(P[0,i])} for i in top],
+            top=np.argsort(-P[0])[:3]; head=MBTI[top[0]]
+            letter_type=''.join(a if L[0,i]>=.5 else b for i,(a,b) in enumerate(LETTERS))
+            clash=[{'letter':letter_type[i],'p':float(max(L[0,i],1-L[0,i]))} for i in range(4) if abs(L[0,i]-.5)>=.2 and head[i]!=letter_type[i]]
+            return {'type':head,'top':[{'type':MBTI[i],'p':float(P[0,i])} for i in top],'letter_type':letter_type,'contradicts':clash,
                     'letters':{a+b:float(L[0,i]) for i,(a,b) in enumerate(LETTERS)},'cv':c['cv'],'n':c['n']}
         agent=card(self.agent); agent['source']=self.agent['source']
-        return {'words':n_words,'short_text':n_words<150,'big5':big5,'short_text_cv':self.short_cv,
+        fp,rep=style_stats(text); genre=[]
+        if rep>=.2: genre.append(f'{rep:.0%} of lines repeat, like lyrics or a poem')
+        if fp<self.first_person_p5: genre.append(f'little first-person language ({fp:.1%} of words, below 95% of the PDB self-descriptions the models learned from)')
+        return {'words':n_words,'short_text':n_words<150,'not_self_description':genre,'big5':big5,'short_text_cv':self.short_cv,
                 'mbti':{'crowd':card(self.crowd),'jev':card(self.jev) if self.jev else None,'agent':agent},
                 'enneagram':cores(self.ennea,self.ennea_reason),'agent_enneagram':cores(self.agent_ennea,self.agent_ennea_reason),
                 'trained_on':self.trained_on}

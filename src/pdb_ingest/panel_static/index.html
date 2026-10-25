@@ -67,7 +67,7 @@ td,th{border-bottom:1px solid var(--grid);padding:3px 8px;text-align:right;white
   <div id="result">
     <div id="warn"></div>
     <div class="grid" style="margin-top:16px">
-      <div class="card"><h3>Big Five (percentile)</h3><p class="note">Bar = estimate; band = ±1 cross-validated error. r = how well this predictor tracked the agent's IPIP scores in cross-validation.</p><div id="r-big5"></div></div>
+      <div class="card"><h3>Big Five (percentile)</h3><p class="note">Bar = estimate against general-population IPIP norms; band = ±1 cross-validated error. r = how well this predictor tracked the agent's IPIP scores in cross-validation. "PDB" = where the text ranks among PDB profiles. The agent reads PDB writers as low in Agreeableness and high in Neuroticism and Openness, so most texts drift that way on the population scale; the PDB rank removes that shared offset.</p><div id="r-big5"></div></div>
       <div class="card"><h3>MBTI: PDB crowd</h3><div class="hero" id="r-crowd-type"></div><p class="note" id="r-crowd-note"></p><p class="note">Trained on how PDB voters typed each profile (their most common vote). Letter rows: probability per letter, with cross-validated balanced accuracy (chance 50%).</p><div id="r-crowd-letters"></div></div>
       <div class="card"><h3>MBTI: Jev 1.14</h3><div class="hero" id="r-jev-type"></div><p class="note" id="r-jev-note"></p><p class="note">Trained on Jev 1.14's 16-type probabilities for each profile (a teacher model that reads the whole profile). Accuracy shown against Jev itself and against the crowd.</p><div id="r-jev-letters"></div></div>
       <div class="card"><h3>MBTI: DeepSeek agent</h3><div class="hero" id="r-agent-type"></div><p class="note" id="r-agent-note"></p><p class="note">The type the DeepSeek agent would score on MBTI Form M after reading this text (letters only).</p><div id="r-agent-letters"></div></div>
@@ -169,12 +169,12 @@ function rangeRows(id,items){// Big Five: percentile bar with ±error band
   const W=520,row=44,L=150,R=16,pw=W-L-R,s=svg(W,items.length*row+20,$(id));
   [0,25,50,75,100].forEach(p=>{const x=L+pw*p/100;el('line',{x1:x,x2:x,y1:4,y2:items.length*row,stroke:css('--grid')},s);text(p,x,items.length*row+14,{'text-anchor':'middle'},s)});
   items.forEach((it,i)=>{const y=i*row+8;
-    text(it.name,L-10,y+14,{'text-anchor':'end',class:'ink','font-weight':600},s);text(`r = ${it.cv.spearman.toFixed(2)}`,L-10,y+29,{'text-anchor':'end',class:'mut'},s);
+    text(it.name,L-10,y+14,{'text-anchor':'end',class:'ink','font-weight':600},s);text(`r = ${it.cv.spearman.toFixed(2)} · PDB ${Math.round(it.pdb_percentile)}th`,L-10,y+29,{'text-anchor':'end',class:'mut'},s);
     el('rect',{x:L+pw*it.low/100,y:y+4,width:Math.max(2,pw*(it.high-it.low)/100),height:20,rx:4,fill:css('--s1-soft')},s);
     el('rect',{x:L,y:y+11,width:pw*it.percentile/100,height:6,rx:3,fill:css('--s1')},s);
     el('circle',{cx:L+pw*it.percentile/100,cy:y+14,r:6,fill:css('--s1'),stroke:css('--surface'),'stroke-width':2},s);
     text(Math.round(it.percentile),Math.min(L+pw*it.percentile/100+10,W-R-14),y+2,{class:'ink'},s);
-    hover(el('rect',{x:L,y,width:pw,height:28,class:'hit'},s),`<b>${it.name}</b><br>${Math.round(it.percentile)}th percentile (range ${Math.round(it.low)}–${Math.round(it.high)})<br>CV Spearman r ${it.cv.spearman.toFixed(2)}, n=${it.cv.n}`)});
+    hover(el('rect',{x:L,y,width:pw,height:28,class:'hit'},s),`<b>${it.name}</b><br>${Math.round(it.percentile)}th percentile (range ${Math.round(it.low)}–${Math.round(it.high)})<br>Among PDB profiles (agent readings): ${Math.round(it.pdb_percentile)}th<br>CV Spearman r ${it.cv.spearman.toFixed(2)}, n=${it.cv.n}`)});
 }
 function typeCard(key,c,truth,label){
   if(!c){$('r-'+key+'-type').textContent='—';$('r-'+key+'-note').textContent='Not available: no teacher labels loaded.';$('r-'+key+'-letters').innerHTML='';return}
@@ -182,7 +182,8 @@ function typeCard(key,c,truth,label){
   $('r-'+key+'-type').textContent=c.type;
   const vsCrowd=truth!=='crowd'&&c.cv.crowd?` Against the crowd: ${pct(c.cv.crowd.exact)} exact.`:'';
   $('r-'+key+'-note').textContent=(c.top.length>1?`Top 3: ${c.top.map(x=>`${x.type} ${pct(x.p)}`).join(' · ')}. `:'')+
-    `Cross-validated against ${label}: right type ${pct(cv.exact)}, top 3 ${pct(cv.top3)} (always guessing the commonest: ${pct(cv.chance)}; n=${cv.n}).`+vsCrowd;
+    `Cross-validated against ${label}: right type ${pct(cv.exact)}, top 3 ${pct(cv.top3)} (always guessing the commonest: ${pct(cv.chance)}; n=${cv.n}).`+vsCrowd+
+    (c.contradicts&&c.contradicts.length?` ⚠ The letter bars alone say ${c.letter_type} (${c.contradicts.map(x=>`${x.letter} ${pct(x.p)}`).join(', ')}); the 16-type model outweighed them, mostly because of how often each type occurs in its training labels.`:'');
   const rows={};Object.entries(c.letters).forEach(([pair,p],i)=>rows[pair]={p_first:p,cv:{balanced_accuracy:cv.letters_balanced[i],n:cv.n}});
   letterRows('r-'+key+'-letters',rows);
 }
@@ -217,6 +218,7 @@ async function assess(){
     if(r.error){$('status').textContent=r.error;return}
     $('result').style.display='block';$('status').textContent='';
     $('warn').innerHTML=r.short_text?`<div class="warn">Only ${r.words} words after removing typology labels. The models were trained on profiles with hundreds to thousands of words, so treat short-text results as rough.</div>`:'';
+    if(r.not_self_description&&r.not_self_description.length)$('warn').innerHTML+=`<div class="warn">This may not be a self-description: ${r.not_self_description.join('; ')}. The models learned from people describing themselves, so treat these results as unreliable.</div>`;
     rangeRows('r-big5',Object.values(r.big5));
     const sc=r.short_text_cv;
     if(sc&&sc.type&&r.words<600)$('warn').innerHTML+=`<div class="warn">Accuracy on short texts is much lower than the full-profile numbers shown in each card. On 250-word excerpts of held-out profiles: right type ${Math.round(sc.type.exact*100)}%, in the top 3 ${Math.round(sc.type.top3*100)}%; Big Five rank correlation ${sc.ipip_spearman.toFixed(2)} (vs about 0.5 on full profiles). Longer texts help.</div>`;
