@@ -59,6 +59,15 @@ def lemma(w,table):
         if s and s in table: return s
     return w
 
+def emotional_sentences(text,lex,min_share=.3,min_words=50):
+    """Only the sentences holding at least one NRC emotion word (the eight emotions, not bare positive/negative), as in
+    Majumder et al. (2017); the full text when that keeps under min_share of the words or under min_words words."""
+    emo=frozenset().union(*(lex.emotions.get(e,frozenset()) for e in EMOTIONS[:8]))
+    if not emo or not text.strip(): return text
+    parts=re.findall(r'[^.!?\n]+[.!?\n]*',text); kept=[p.strip() for p in parts if emo & set(TOKEN.findall(p.lower()))]
+    k=sum(len(TOKEN.findall(p.lower())) for p in kept); n=len(TOKEN.findall(text.lower()))
+    return ' '.join(kept) if kept and k>=min_words and k>=min_share*n else text
+
 def doc_features(text,lex):
     """Fixed-length, always finite feature vector (order: FEATURES)."""
     toks=TOKEN.findall(text.lower()); n=max(len(toks),1); out=[]; raw=Counter(toks)

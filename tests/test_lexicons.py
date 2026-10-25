@@ -40,3 +40,18 @@ def test_plural_fallback_does_not_touch_function_words():
     lex=load_lexicons(FIX); lex.concreteness['i']=1.0; lex.concreteness['hi']=2.0
     v=doc_features('his is',lex)
     assert f(v,'i_rate')==0 and f(v,'they_rate')==.5
+
+def test_filter_keeps_emotional():
+    from pdb_ingest.lexicons import emotional_sentences
+    out=emotional_sentences('I hate mondays. The bus is blue. I feel happy today.',load_lexicons(FIX),min_words=1)
+    assert 'hate' in out and 'happy' in out and 'bus' not in out
+
+def test_filter_falls_back():
+    from pdb_ingest.lexicons import emotional_sentences
+    t='The bus is blue. The sky is wide.'
+    assert emotional_sentences(t,load_lexicons(FIX),min_words=1)==t
+
+def test_filter_never_empty():
+    from pdb_ingest.lexicons import emotional_sentences
+    lex=load_lexicons(FIX)
+    assert emotional_sentences('',lex)=='' and emotional_sentences('ok.',lex)=='ok.'
