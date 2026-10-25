@@ -20,7 +20,9 @@ JEV_LABELS=Path('data/stage2/llm/typesafe--jev-1.14')
 # Encoder-half regularisation (tools/short_text_experiment.py): at C=1 the encoder letter heads put 78-81% of predictions on
 # held-out 250-word excerpts below .05 or above .95 (excerpt log loss worse than chance); C=.01 cut that to 14-28% and raised
 # balanced accuracy on excerpts (crowd .545 -> .573, agent .563 -> .617) and on full profiles (.591 -> .619, .648 -> .671).
-ENCODER_LETTER_C=.01
+# C=.003 (2026-10-25 sweep): excerpt log loss .664 and 2% extreme for crowd letters, agent excerpt bal .626, full within .005;
+# the encoder half of the 16-type heads moves from C=.3 to .003: excerpt exact 12.8% -> 15.1%, top-3 34.7% -> 38.1%.
+ENCODER_LETTER_C=ENCODER_TYPE_C=.003
 AGENT_FORMM=Path('data/stage2/formm-v3b-cap8k')   # agent Form M v3b results (tools/formm_v2.py); prompt A's form_m if too few
 ABLATION=Path('data/stage2/type_ablation.json')
 
@@ -182,7 +184,7 @@ class Assessor:
         def fit_types(sub,T):
             """16-type head on (n,16) soft targets T; returns models and out-of-fold probabilities."""
             D,E=data(sub); P=np.zeros((len(sub),16))
-            new=lambda:((tfidf(),LogisticRegression(C=4,max_iter=3000)),(StandardScaler(),LogisticRegression(C=.3,max_iter=3000)))
+            new=lambda:((tfidf(),LogisticRegression(C=4,max_iter=3000)),(StandardScaler(),LogisticRegression(C=ENCODER_TYPE_C,max_iter=3000)))
             for tr,te in cv.split(sub):
                 ms=[soft_fit(np,pre,clf,X,T[tr]) for (pre,clf),X in zip(new(),([D[i] for i in tr],E[tr]))]
                 P[te]=type_probs(np,ms,[D[i] for i in te],E[te])
