@@ -151,6 +151,33 @@ The encoder scrubber also removes Socionics codes, SLOAN codes and function-posi
 
 ## Stage 3: psychometric agent battery
 
+### Method basis: generative agents (Park et al., 2024)
+
+The agent battery follows Park, Zou, Shaw, Hill, Cai, Morris, Willer, Liang & Bernstein (2024), *Generative Agent Simulations of 1,000 People* (Stanford / Google DeepMind, [arXiv:2411.10109](https://arxiv.org/abs/2411.10109)). They interviewed 1,052 representative US adults for about two hours each, conditioned a language model on each transcript, and had it answer standard instruments as that person. Scores were *normalized* by how consistently each real person answered the same instruments two weeks later:
+- **General Social Survey:** the agents matched people's own answers 85% as well as the people matched themselves.
+- **Big Five (BFI-44):** normalized correlation of about 0.80.
+- **Economic games:** normalized correlation of about 0.66.
+- **Ablations:** agents built from interviews beat ones built from demographics or short persona descriptions, and reduced accuracy gaps across racial and ideological groups. Dropping a random 80% of an interview still gave 0.79 on the GSS, so most of the signal survives much less text.
+
+How this project adapts it:
+
+| Park et al. | Here |
+|---|---|
+| 2-hour structured interview | The creator's own PDB writing: pinned self-descriptions, questionnaires they answered, comments, linked Google Docs |
+| Agent answers as the participant | Prompt A (`stage3-v1`): the same persona-simulation framing, first person |
+| Third-person prediction with "expert reflections" from a simulated psychologist (their supplement) | Prompt C (`stage3-predict-v1`), reproduced as a framing check |
+| Validated against each person's own retest | No retest is possible, so validated against independent signals (below) |
+
+Our checks that the agent's readings carry real signal rather than invented traits:
+- **Framing robustness:** prompts A and C rank profiles almost identically (per-domain r = 0.92–0.97 on 25 profiles), so results do not hinge on the persona wording.
+- **Agreement with independent raters:** PDB voters never see the agent's answers, yet their votes line up with its Big Five: share of E votes vs agent Extraversion ρ = +0.65, T votes vs Agreeableness ρ = −0.53, J votes vs Conscientiousness ρ = +0.49, N votes vs Openness ρ = +0.34. The agent's own MBTI self-type matches the crowd's modal type 47% exactly and 80% letter by letter (the commonest-type baseline is about 12%).
+- **Known instrument relationships:** the agent's Form M vs its IPIP reproduces the observed Form M / Big Five correlations from CPP's 2009 Form M Manual Supplement for E–I vs Extraversion (−.72 vs −.70) and J–P vs Conscientiousness (−.56 vs −.54).
+- **One real self-report:** the project owner's measured IPIP-300 against the panel's prediction from a 174-word self-description gave a mean absolute error of 7.8 percentile points, against 22.4 for predicting the average PDB profile.
+
+Known limits, stated plainly: there is no real self-report ground truth beyond that one person; PDB writing is self-presentation, not an interview; and the agent's *MBTI* answers on prompt A are caricatured (see "Agent MBTI simulation" below). Its Big Five readings are the validated part. Agent outputs are therefore treated as an expert-style reading of each person's text, not as the person's true scores.
+
+### Running the battery
+
 Each complete profile's creator-authored corpus (`raw_text` by default, `--text-view scrubbed` for the jargon-free view) is placed inside `<biographical_corpus>` in a fixed persona-simulation system prompt. The model then answers through forced tool calls: five 24-item IPIP-NEO-120 blocks (1–5), two MBTI Form M blocks (A/B), and one self-typing call (MBTI, Enneagram with wing, first-person rationale). Calls are independent, so no block sees earlier answers, and they share the same prefix. Answers that are invalid or incomplete are retried up to twice. Scoring is local: `IPIP-NEO-120-compact/ipip_neo.py` and `pdb_ingest/formm.py`, a Python port of `MBTI Form M/scorer.js` (a parity test runs when Node is installed).
 
 ```powershell
