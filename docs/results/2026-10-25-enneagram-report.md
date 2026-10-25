@@ -277,3 +277,30 @@ SO8 (9 profiles, 7 with IPIP) is below the threshold.
 - Repeat the subtype table on crowd SLOAN votes, a Big Five source independent of the agent.
 - Tritype: does the second and third fix add Big Five information beyond the core?
 - Subtype-level leak control once more profiles without Enneagram talk are crawled.
+
+## 5. Predicting the subtype from Big Five (`tools/subtype_model.py`)
+
+5-fold CV over 703 profiles. "Self" columns score the same out-of-fold predictions against the profile creator's own
+Enneagram (391) and instinct (413) self-votes.
+
+| Model | Subtype top-1 | Top-3 | Core | Log loss | Countertypes top-3 | Self core | Self instinct |
+|---|---|---|---|---|---|---|---|
+| v1 (Gaussian, instinct offset pooled across cores) | 18.0% | 41.6% | 37.1% | 2.897 | 36.4% | 38.2% | 46.4% |
+| cap facets at +-2 | 18.4% | 41.7% | 37.6% | 2.908 | 36.0% | 38.1% | 46.3% |
+| shape (profile centred) | 18.4% | 41.9% | 37.5% | 2.894 | 36.0% | 38.3% | 46.2% |
+| Student-t | 17.7% | 41.5% | 37.0% | 2.988 | 36.3% | 37.5% | 46.3% |
+| instinct effects per core, k=50 | 17.9% | 41.9% | 37.3% | 2.859 | 36.7% | 38.5% | 44.7% |
+| + coded wiki theory, lam=.5 | 18.2% | 39.7% | 38.1% | 3.483 | 35.1% | **40.0%** | 44.1% |
+| + coded wiki theory, lam=1 | 15.9% | 36.9% | 34.1% | 4.168 | 33.1% | 37.1% | 42.3% |
+| **v2: shape + per-core instincts + off-map tempering** | **18.4%** | **42.6%** | 37.6% | **2.850** | **36.8%** | 38.4% | 44.9% |
+
+Chance: 3.7% top-1, 11.1% top-3, 11.1% core, 33% instinct.
+
+- Each change is worth under a point; the combined v2 gains one point of top-3 and the best log loss. Capping extreme
+  facets and Student-t tails did not help.
+- The coded wiki descriptions (`tools/subtype_theory.json`) make predictions of the crowd's subtype worse, but at a
+  light weight they raise agreement with creators' **own** core from 38% to 40%. Self-typers likely type themselves
+  from the same descriptions, so the theory matches how people see themselves better than how voters see them. v2
+  leaves the theory out of the probabilities and reports it separately, as a fit score per candidate.
+- Off-map: both test people sit beyond the 95th-percentile distance of training profiles (9.6 and 13.2 against 7.2),
+  so v2 flattens their probabilities and flags them.
