@@ -42,17 +42,40 @@ Findings:
 - Training on excerpts (M2) did not beat plain regularisation, so it was dropped.
 - Big Five ridge heads were already fine: RidgeCV picks its own alpha. Excerpt r .342 at RidgeCV, .346 at alpha 1e3, .352 at 1e4, but full-profile r drops at 1e4 (.569 → .534), so RidgeCV stays.
 
-**Status when the night's run stopped:** command execution became unavailable partway through: the tool's safety checker returned errors on every command. At that point:
-- `panel.ENCODER_LETTER_C=.01` was set in the code but **not yet committed, tested or retrained** into the panel.
-- The follow-up sweep (C = .003 and .001, plus the encoder half of the 16-type heads, still at C=.3) was written (`short_text_experiment.py --cs`) but **not run**.
+Command execution was unavailable for part of the night (the tool's safety checker errored), so the follow-up sweep ran the next morning (`short_text_experiment.py --cs`, results in `data/stage2/short_text_experiment_c.json`):
 
-Next steps:
-1. `pytest`.
-2. Run the sweep: `python tools/short_text_experiment.py --db data/pdb-top.duckdb --cs 0.01,0.003,0.001 --output data/stage2/short_text_experiment_c.json`.
-3. Set the 16-type encoder C from it.
-4. Commit, restart the panel (one ~10-minute retrain), tag `v0.3`.
+| | C | Full | 250-word excerpts | Extreme outputs |
+|---|---|---|---|---|
+| Crowd letters | .01 | bal .619 | bal .573, log loss .675 | 14% |
+| | **.003** | bal .618 | **bal .576, log loss .664** | 2% |
+| | .001 | bal .615 | bal .574, log loss .661 | 0% |
+| Agent letters | .01 | bal .671 | bal .617 | 28% |
+| | **.003** | bal .669 | **bal .626** | 9% |
+| Crowd 16-type (encoder half) | .3 (v0.2) | exact 16.9%, top-3 41.9% | exact 12.8%, top-3 34.7% | |
+| | .01 | exact 17.6%, top-3 43.8% | exact 14.3%, top-3 35.7% | |
+| | **.003** | exact 16.5%, top-3 43.5% | **exact 15.1%, top-3 38.1%** | |
 
-## 3. Not done
+The panel uses **C = .003** for both the letter heads and the 16-type heads (`ENCODER_LETTER_C`, `ENCODER_TYPE_C`). Per-letter balanced accuracy on excerpts, v0.2 → v0.3:
+- crowd: E/I .53 → .59, S/N .55 → .56, T/F .59 → .63, J/P .51 → .53
+- agent: E/I .56 → .61, S/N .56 → .60, T/F .59 → .67, J/P .54 → .63
+
+The panel's short-text warning now quotes these numbers: 15% exact, 38% top-3, Big Five r .34.
+
+## 3. Checks on the retrained panel (v0.3)
+
+**Leak probe** (`tools/leak_probe.py`): each of the 16 first-person portraits was scored with and without a typology-talk intro that names no type. After scrubbing, what remains is generic meta-talk ("searching for my type ... to be typed in any system"). Mean letter shifts are small (.01–.09), but close calls still flip: the type changed for 5 of 16 portraits on the crowd and Jev cards and 3 of 16 on the agent card. Generic "type me" phrasing is a residual leak that word filters can't fully remove.
+
+**Portraits: a trade-off.** v0.2's saturated encoder half was what carried Sensing on the idealized portraits:
+
+| First-person portraits, strict | v0.2 exact / S/N | v0.3 exact / S/N | S predicted, v0.2 → v0.3 |
+|---|---|---|---|
+| Crowd | 5/16 / .75 | 5/16 / .50 | 6 → 0 |
+| Jev | 10/16 / .75 | 5/16 / .63 | 4 → 4 |
+| Agent | 5/16 / .69 | 5/16 / .81 | 3 → 7 |
+
+The 859-profile cross-validation on real PDB excerpts favours v0.3 on every letter. The 16 portraits are idealized type descriptions rewritten by an LLM, so v0.3 ships, but the crowd card no longer predicts S on them. A tunable TF-IDF/encoder weight (now a fixed 50/50 average) is the next experiment, judged on both tests.
+
+## 4. Not done
 
 - **Reddit "type me" thread:** Reddit returns 403 to automated requests.
 - **Kaggle MBTI dataset:** needs a logged-in Kaggle account, which I can't create or use.

@@ -107,7 +107,7 @@ The **assessor** scores a typed self-description with typology labels scrubbed. 
 
 Assessed text is never stored or logged.
 
-The agent's reading is skewed in this sample (high O and N, low C, E and A), so Big Five predictions for new texts are pulled toward that profile. Startup trains every head with 5-fold CV, which takes about 10 minutes on Top + top2.
+The encoder half of every MBTI head uses strong regularisation (`ENCODER_LETTER_C = ENCODER_TYPE_C = .003`). At the old setting it saturated on pasted text, with 78–81% of predictions on held-out 250-word excerpts below .05 or above .95. The fix raised excerpt balanced accuracy (crowd letters .545 → .576, agent .563 → .626) with full-profile accuracy unchanged ([report](docs/results/2026-10-25-overnight.md)). The agent's reading is skewed in this sample (high O and N, low C, E and A), so Big Five predictions for new texts are pulled toward that profile. Startup trains every head with 5-fold CV, which takes about 10 minutes on Top + top2.
 
 On 16 official-style type portraits rewritten in first person (`tools/portrait_test.py`, `tools/portrait_first_person.py`; portraits stay local), the gte-based Jev card gets 10 of 16 types exactly and 14 of 16 in its top 3, with S/N right 75% of the time; the crowd and agent cards get 5 of 16. The same test with e5-small found almost no Sensing signal (S/N about 50%). The first start also embeds any uncached profiles. The panel opens the database read-only, but DuckDB on Windows still cannot share the file with a running writer (crawl, assess, annotate). Point `--db` at a copy, or stop the writer.
 
