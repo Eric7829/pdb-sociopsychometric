@@ -16,7 +16,7 @@ MBTI=[a+b+c+d for a in 'EI' for b in 'SN' for c in 'TF' for d in 'JP']
 LETTERS=[('E','I'),('S','N'),('T','F'),('J','P')]
 SAMPLE_JOIN="LEFT JOIN crawl_queue q ON q.profile_num=p.profile_num"
 JEV_LABELS=Path('data/stage2/llm/typesafe--jev-1.14')
-TYPE_ALPHA=.5  # 16-type head targets alpha*Jev+(1-alpha)*crowd (Jev rescaled to crowd type frequencies)
+AGENT_FORMM=Path('data/stage2/formm-v3b-cap8k')   # agent Form M v3b results (tools/formm_v2.py); prompt A's form_m if too few
 ABLATION=Path('data/stage2/type_ablation.json')
 
 def letter_weight(np,n_words):
@@ -49,6 +49,16 @@ def soft_fit(np,pre,clf,X,targets,class_weight=None):
     rows=[(i,j,w*cw[j]) for i,t in enumerate(targets) for j,w in enumerate(t) if w>1e-3]
     clf.fit(Z[[i for i,_,_ in rows]],np.array(MBTI)[[j for _,j,_ in rows]],sample_weight=np.array([w for _,_,w in rows]))
     return pre,clf
+
+def soft_binary_fit(np,pre,clf,X,p):
+    """Binary fit on soft labels p (probability of the first letter): each profile appears as a positive row weighted p and a
+    negative row weighted 1-p, with classes balanced by their total weight. pre is fitted once on the unique profiles."""
+    Z=pre.fit_transform(X); n=len(p); wp,wn=n/(2*max(p.sum(),1e-9)),n/(2*max((1-p).sum(),1e-9))
+    idx=np.r_[np.arange(n),np.arange(n)]; y=np.r_[np.ones(n),np.zeros(n)]; w=np.r_[p*wp,(1-p)*wn]; keep=w>1e-6
+    clf.fit(Z[idx[keep]],y[keep],sample_weight=w[keep]); return pre,clf
+
+def binary_prob(models,D,E):
+    return sum(clf.predict_proba(pre.transform(X))[:,1] for (pre,clf),X in zip(models,(D,E)))/2
 
 def type_probs(np,models,D,E):
     T=np.zeros((len(E),16))
@@ -137,36 +147,56 @@ class Assessor:
             pred=(cross_val_predict(mt,D,y,cv=cv)+cross_val_predict(me,E,y,cv=cv))/2
             self.ipip_cv[k]={'spearman':spearman(list(pred),list(y)),'rmse':float(np.sqrt(np.mean((pred-y)**2))),'n':len(y)}
             self.ipip[k]=(mt.fit(D,y),me.fit(E,y),norms[k])
-        def fit_letters(label):
-            """Per-letter binary heads for an MBTI label function; letters with one class in the data are left out."""
-            sub=[n for n in ids if label(rows[n])]; D,E=data(sub); heads={}; oof=np.full((len(sub),4),.5)
+        def fit_letters(sub,P):
+            """Per-letter heads trained on (n,4) first-letter probabilities P (0/1 for hard labels, a teacher's marginals for soft
+            ones); returns {pair: models} and out-of-fold probabilities. Letters with too little of one class are left out."""
+            D,E=data(sub); heads={}; oof=np.full((len(sub),4),.5)
+            new=lambda:((tfidf(),LogisticRegression(C=4,max_iter=3000)),(StandardScaler(),LogisticRegression(C=1,max_iter=3000)))
             for i,(a,b) in enumerate(LETTERS):
-                y=np.array([label(rows[n])[i]==a for n in sub])
-                if len(set(y))<2 or min(y.sum(),(~y).sum())<folds: continue
-                mt=make_pipeline(tfidf(),LogisticRegression(C=4,max_iter=3000,class_weight='balanced'))
-                me=make_pipeline(StandardScaler(),LogisticRegression(C=1,max_iter=3000,class_weight='balanced'))
-                p=(cross_val_predict(mt,D,y,cv=cv,method='predict_proba')[:,1]+cross_val_predict(me,E,y,cv=cv,method='predict_proba')[:,1])/2
-                heads[a+b]=(mt.fit(D,y),me.fit(E,y),{'balanced_accuracy':float(np.mean([np.mean((p>=.5)[y==v]==v) for v in (True,False)])),'n':len(y)})
-                oof[:,i]=p
-            return heads,len(sub),sub,oof
-        def fit_types(sub,letter_oof):
-            """16-type head distilled from Jev (soft targets), pooled with the letter heads; CV uses out-of-fold letters too."""
-            D,E=data(sub); y=np.array([modal(rows[n]['mbti_counts']) for n in sub]); onehot=np.eye(16)[[MBTI.index(t) for t in y]]
-            J=[jev_probs(n) for n in sub]; n_jev=sum(j is not None for j in J); has=np.array([j is not None for j in J])
-            J=np.array([j if j is not None else o for j,o in zip(J,onehot)])
-            def targets(tr):
-                """Soft targets for training rows tr; Jev rescaled to the training crowd's type frequencies."""
-                Jc=J[tr].copy(); Jc[has[tr]]=prior_correct(np,J[tr][has[tr]],onehot[tr].mean(0)+1e-3)
-                return np.where(has[tr,None],TYPE_ALPHA*Jc+(1-TYPE_ALPHA)*onehot[tr],onehot[tr])
+                p=P[:,i]
+                if min(p.sum(),(1-p).sum())<folds: continue
+                for tr,te in cv.split(sub):
+                    ms=[soft_binary_fit(np,pre,clf,X,p[tr]) for (pre,clf),X in zip(new(),([D[k] for k in tr],E[tr]))]
+                    oof[te,i]=binary_prob(ms,[D[k] for k in te],E[te])
+                heads[a+b]=[soft_binary_fit(np,pre,clf,X,p) for (pre,clf),X in zip(new(),(D,E))]
+            return heads,oof
+        def fit_types(sub,T):
+            """16-type head on (n,16) soft targets T; returns models and out-of-fold probabilities."""
+            D,E=data(sub); P=np.zeros((len(sub),16))
             new=lambda:((tfidf(),LogisticRegression(C=4,max_iter=3000)),(StandardScaler(),LogisticRegression(C=.3,max_iter=3000)))
-            P=np.zeros((len(sub),16))
             for tr,te in cv.split(sub):
-                t=targets(tr); ms=[soft_fit(np,pre,clf,X,t) for (pre,clf),X in zip(new(),([D[i] for i in tr],E[tr]))]
+                ms=[soft_fit(np,pre,clf,X,T[tr]) for (pre,clf),X in zip(new(),([D[i] for i in tr],E[tr]))]
                 P[te]=type_probs(np,ms,[D[i] for i in te],E[te])
-            P=pool(np,letters_to_types(np,letter_oof),P,letter_weight(np,[words(d) for d in D])); idx=np.array([MBTI.index(t) for t in y])
-            cv_={'exact':float(np.mean(P.argmax(1)==idx)),'top3':float(np.mean([i in np.argsort(-p)[:3] for p,i in zip(P,idx)])),
-                 'chance':max(Counter(y).values())/len(y),'n':len(y),'jev_labelled':n_jev}
-            t=targets(np.arange(len(sub))); return [soft_fit(np,pre,clf,X,t) for (pre,clf),X in zip(new(),(D,E))],cv_
+            return [soft_fit(np,pre,clf,X,T) for (pre,clf),X in zip(new(),(D,E))],P
+        def scores(P,truth):
+            """Exact / top-3 of (n,16) probabilities against hard types, plus per-letter balanced accuracy."""
+            idx=np.array([MBTI.index(t) for t in truth]); top=P.argmax(1); bal=[]
+            for i,(a,_) in enumerate(LETTERS):
+                y=np.array([t[i]==a for t in truth]); hat=np.array([MBTI[k][i]==a for k in top])
+                bal.append(float(np.mean([np.mean(hat[y==v]==v) for v in (True,False) if (y==v).any()])))
+            return {'exact':float(np.mean(top==idx)),'top3':float(np.mean([i in np.argsort(-p)[:3] for p,i in zip(P,idx)])),
+                    'letters_balanced':bal,'chance':max(Counter(truth).values())/len(truth),'n':len(truth)}
+        def card(sub,letter_p,type_t,truths):
+            """Letter heads (+ optional 16-type head) pooled by text length; CV scored against each named truth."""
+            heads,loof=fit_letters(sub,letter_p); L=letters_to_types(np,loof)
+            types,toof=fit_types(sub,type_t) if type_t is not None else (None,None)
+            P=pool(np,L,toof,letter_weight(np,[words(docs[n]) for n in sub])) if types else L
+            return {'letters':heads,'types':types,'cv':{name:scores(P,t) for name,t in truths.items()},'n':len(sub)}
+        def letter_onehot(types): return np.array([[t[i]==a for i,(a,_) in enumerate(LETTERS)] for t in types],dtype=float)
+        # Crowd card: modal crowd vote, letters + 16-type head.
+        sub=[n for n in ids if 'mbti_counts' in rows[n]]; crowd=[modal(rows[n]['mbti_counts']) for n in sub]
+        self.crowd=card(sub,letter_onehot(crowd),np.eye(16)[[MBTI.index(t) for t in crowd]],{'crowd':crowd})
+        # Jev card: Jev 1.14's probabilities as the teacher (letter marginals and all 16), scored against Jev and the crowd.
+        sub=[n for n in sub if jev_probs(n)]; self.jev=None
+        if len(sub)>=folds*4:
+            J=np.array([jev_probs(n) for n in sub])
+            JL=np.array([[J[k,[j for j,t in enumerate(MBTI) if t[i]==a]].sum() for i,(a,_) in enumerate(LETTERS)] for k in range(len(sub))])
+            self.jev=card(sub,JL,J,{'jev':[MBTI[k] for k in J.argmax(1)],'crowd':[modal(rows[n]['mbti_counts']) for n in sub]})
+        # Agent card: the DeepSeek agent's Form M type (v3b when available for enough profiles), letters only.
+        v3b={int(f.stem):json.loads(f.read_text(encoding='utf-8'))['scored']['type'] for f in AGENT_FORMM.glob('*.json')} if AGENT_FORMM.exists() else {}
+        use_v3b=sum(n in v3b for n in ids)>=200; agent=(lambda n:v3b.get(n)) if use_v3b else (lambda n:rows[n].get('form_m'))
+        sub=[n for n in ids if agent(n)]; at=[agent(n) for n in sub]
+        self.agent=card(sub,letter_onehot(at),None,{'agent':at}); self.agent['source']='Form M v3b' if use_v3b else 'Form M prompt A'
         def fit_cores(label):
             """Multiclass Enneagram-core head; (None, n, reason) when the data cannot support it."""
             sub=[n for n in ids if label(rows[n])]; D,E=data(sub); y=np.array([label(rows[n])[0] for n in sub]); counts=Counter(y)
@@ -177,16 +207,13 @@ class Assessor:
             cores=sorted(counts)
             cv_=({'top1':float(np.mean(np.array(cores)[p.argmax(1)]==y)),'chance':max(counts.values())/len(y),'n':len(y)})
             return (mt.fit(D,y),me.fit(E,y),cores,cv_),len(sub),None
-        crowd_type=lambda r:modal(r['mbti_counts']) if 'mbti_counts' in r else None
         crowd_core=lambda r:modal(r['ennea_counts']) if 'ennea_counts' in r else None
-        self.letters,n_letters,type_ids,letter_oof=fit_letters(crowd_type)
-        self.types,self.types_cv=fit_types(type_ids,letter_oof)
         a=json.loads(ABLATION.read_text(encoding='utf-8'))['A'] if ABLATION.exists() else {}   # 250-word-crop accuracy, if measured
         self.short_cv={'type':a.get('l2/crop/fixed+prior/w0.8'),'ipip_spearman':(a.get('l2/ipip_mean_spearman') or {}).get('crop')} if a else None
         self.ennea,n_ennea,self.ennea_reason=fit_cores(crowd_core)
-        self.agent_letters,n_agent_letters,_,_=fit_letters(lambda r:r.get('form_m'))
         self.agent_ennea,n_agent_ennea,self.agent_ennea_reason=fit_cores(lambda r:r.get('agent_ennea'))
-        self.trained_on={'regression':len(reg_ids),'letters':n_letters,'enneagram':n_ennea,'agent_letters':n_agent_letters,'agent_enneagram':n_agent_ennea}
+        self.trained_on={'regression':len(reg_ids),'crowd_type':self.crowd['n'],'jev_type':self.jev['n'] if self.jev else 0,'agent_type':self.agent['n'],
+                         'enneagram':n_ennea,'agent_enneagram':n_agent_ennea}
 
     def embed(self,views):
         from . import embed
@@ -201,20 +228,22 @@ class Assessor:
             raw=float((mt.predict(D)[0]+me.predict(E)[0])/2); rmse=self.ipip_cv[k]['rmse']
             big5[k]={'name':DOMAIN_NAMES[k],'raw':raw,'percentile':percentile(raw,norm),'low':percentile(raw-rmse,norm),
                      'high':percentile(raw+rmse,norm),'cv':self.ipip_cv[k]}
-        def letters(heads):
-            out={pair:{'p_first':float((mt.predict_proba(D)[0,1]+me.predict_proba(E)[0,1])/2),'cv':cv_} for pair,(mt,me,cv_) in heads.items()}
-            return out,''.join((out[a+b]['p_first']>=.5 and a or b) if a+b in out else 'X' for a,b in LETTERS)
         def cores(head,reason):
             if head is None: return {'unavailable':reason}
             mt,me,names,cv_=head; probs=(mt.predict_proba(D)[0]+me.predict_proba(E)[0])/2
             return {'cores':names,'probabilities':[float(x) for x in probs],'cv':cv_}
-        crowd_letters,crowd_type=letters(self.letters); agent_letters,agent_type=letters(self.agent_letters)
-        L=np.array([[crowd_letters[a+b]['p_first'] if a+b in crowd_letters else .5 for a,b in LETTERS]])
-        P=pool(np,letters_to_types(np,L),type_probs(np,self.types,D,E),letter_weight(np,n_words))[0]; top=np.argsort(-P)[:3]
-        mbti_type={'top':[{'type':MBTI[i],'p':float(P[i])} for i in top],'cv':self.types_cv,'short_text_cv':self.short_cv}
-        return {'words':n_words,'short_text':n_words<150,'big5':big5,'mbti_letters':crowd_letters,'mbti':MBTI[top[0]],'mbti_type':mbti_type,
-                'enneagram':cores(self.ennea,self.ennea_reason),'agent_mbti_letters':agent_letters,'agent_mbti':agent_type,
-                'agent_enneagram':cores(self.agent_ennea,self.agent_ennea_reason),'trained_on':self.trained_on}
+        def card(c):
+            L=np.array([[float(binary_prob(c['letters'][a+b],D,E)[0]) if a+b in c['letters'] else .5 for a,b in LETTERS]])
+            P=letters_to_types(np,L)
+            if c['types']: P=pool(np,P,type_probs(np,c['types'],D,E),letter_weight(np,n_words))
+            top=np.argsort(-P[0])[:3]
+            return {'type':MBTI[top[0]],'top':[{'type':MBTI[i],'p':float(P[0,i])} for i in top],
+                    'letters':{a+b:float(L[0,i]) for i,(a,b) in enumerate(LETTERS)},'cv':c['cv'],'n':c['n']}
+        agent=card(self.agent); agent['source']=self.agent['source']
+        return {'words':n_words,'short_text':n_words<150,'big5':big5,'short_text_cv':self.short_cv,
+                'mbti':{'crowd':card(self.crowd),'jev':card(self.jev) if self.jev else None,'agent':agent},
+                'enneagram':cores(self.ennea,self.ennea_reason),'agent_enneagram':cores(self.agent_ennea,self.agent_ennea_reason),
+                'trained_on':self.trained_on}
 
 def percentile(raw,norm):
     counts,minimum=norm['counts'],norm['minimum']

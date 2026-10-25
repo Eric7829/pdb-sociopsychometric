@@ -39,17 +39,17 @@ def main():
             for t in MBTI:
                 f=next(iter(folder.glob(f'{t}.*')),None)
                 if not f: continue
-                r=assess(args.url,portrait(f,level)); top=[x['type'] for x in r['mbti_type']['top']]
-                rows.append({'type':t,'words':r['words'],'crowd_head':r['mbti'],'top3':top,'agent_letters':r['agent_mbti'],
-                             'p_true_rank':top.index(t)+1 if t in top else None})
-            key=f'{folder.name}/{level}'; n=len(rows)
-            letters=lambda k:[round(float(np.mean([x[k][i]==x['type'][i] for x in rows])),3) for i in range(4)]
-            res[key]={'portraits':n,'mean_words':int(np.mean([x['words'] for x in rows])),
-                      'exact':round(float(np.mean([x['crowd_head']==x['type'] for x in rows])),3),
-                      'top3':round(float(np.mean([x['p_true_rank'] is not None for x in rows])),3),
-                      'letters_E_S_T_J':letters('crowd_head'),'agent_letters_exact':round(float(np.mean([x['agent_letters']==x['type'] for x in rows])),3),
-                      'agent_letters_E_S_T_J':letters('agent_letters'),'rows':rows}
-            print(json.dumps({k:v for k,v in res[key].items() if k!='rows'}|{'set':key}),flush=True)
+                r=assess(args.url,portrait(f,level))
+                rows.append({'type':t,'words':r['words'],**{c:{'type':v['type'],'top3':[x['type'] for x in v['top']]} for c,v in r['mbti'].items() if v}})
+            key=f'{folder.name}/{level}'; res[key]={'portraits':len(rows),'rows':rows}
+            for c in ('crowd','jev','agent'):
+                got=[x for x in rows if c in x]
+                if not got: continue
+                res[key][c]={'exact':round(float(np.mean([x[c]['type']==x['type'] for x in got])),3),
+                             'top3':round(float(np.mean([x['type'] in x[c]['top3'] for x in got])),3),
+                             'letters_E_S_T_J':[round(float(np.mean([x[c]['type'][i]==x['type'][i] for x in got])),3) for i in range(4)],
+                             'S_predicted':sum(x[c]['type'][1]=='S' for x in got)}
+            print(json.dumps({'set':key}|{c:res[key][c] for c in ('crowd','jev','agent') if c in res[key]}),flush=True)
     args.output.write_text(json.dumps(res,indent=1),encoding='utf-8')
 
 if __name__=='__main__': main()

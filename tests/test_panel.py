@@ -46,7 +46,7 @@ async def test_assessor_predicts_with_cv_accuracy(tmp_path):
     with store: a=panel.Assessor(store,None,embed_fn=fake_embed,folds=4)
     r=a.assess('I love to lead and plan, I organize teams and I always plan to win. ENTJ forever.')
     assert set(r['big5'])==set('OCEAN') and all(0<=v['percentile']<=100 and v['low']<=v['percentile']<=v['high'] for v in r['big5'].values())
-    assert r['mbti'][0]=='E' and r['mbti_letters']['EI']['cv']['balanced_accuracy']>.9
+    c=r['mbti']['crowd']; assert c['type'][0]=='E' and c['cv']['crowd']['letters_balanced'][0]>.9 and len(c['top'])==3
     assert abs(sum(r['enneagram']['probabilities'])-1)<1e-6 and r['short_text']
     assert a.assess('INFP ENTJ 4w5')=={'error':'No words left after removing typology labels.'}
 
@@ -73,8 +73,8 @@ async def test_assessor_predicts_agent_types(tmp_path):
     store=await build(tmp_path)
     with store: a=panel.Assessor(store,None,embed_fn=fake_embed,folds=4)
     r=a.assess('quiet engine tools fix alone')
-    letters=r['agent_mbti_letters']
-    assert letters and all(0<=v['p_first']<=1 and 'balanced_accuracy' in v['cv'] for v in letters.values())
-    assert len(r['agent_mbti'])==4
+    agent=r['mbti']['agent']
+    assert all(0<=v<=1 for v in agent['letters'].values()) and len(agent['type'])==4 and 'agent' in agent['cv']
+    assert agent['source']=='Form M prompt A' and r['mbti']['jev'] is None   # no v3b or Jev labels for the fake profiles
     # The fake agent always self-types 4w5: a single class cannot be learned and is reported, not crashed on.
     assert r['agent_enneagram']=={'unavailable':'only one class in training data (4)'}

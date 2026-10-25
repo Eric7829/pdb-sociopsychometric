@@ -68,8 +68,9 @@ td,th{border-bottom:1px solid var(--grid);padding:3px 8px;text-align:right;white
     <div id="warn"></div>
     <div class="grid" style="margin-top:16px">
       <div class="card"><h3>Big Five (percentile)</h3><p class="note">Bar = estimate; band = ±1 cross-validated error. r = how well this predictor tracked the agent's IPIP scores in cross-validation.</p><div id="r-big5"></div></div>
-      <div class="card"><h3>MBTI: crowd vote</h3><div class="hero" id="r-type"></div><p class="note" id="r-type-top"></p><p class="note">How PDB voters would most likely type this text (16-type model distilled from Jev 1.14, pooled with the letter rows). Cross-validated balanced accuracy (chance = 50%) per letter row.</p><div id="r-mbti"></div></div>
-      <div class="card"><h3>MBTI: agent (Form M)</h3><div class="hero" id="r-agent-type"></div><p class="note">The type the LLM agent would score on MBTI Form M after reading this text. Cross-validated balanced accuracy per row.</p><div id="r-agent-mbti"></div></div>
+      <div class="card"><h3>MBTI: PDB crowd</h3><div class="hero" id="r-crowd-type"></div><p class="note" id="r-crowd-note"></p><p class="note">Trained on how PDB voters typed each profile (their most common vote). Letter rows: probability per letter, with cross-validated balanced accuracy (chance 50%).</p><div id="r-crowd-letters"></div></div>
+      <div class="card"><h3>MBTI: Jev 1.14</h3><div class="hero" id="r-jev-type"></div><p class="note" id="r-jev-note"></p><p class="note">Trained on Jev 1.14's 16-type probabilities for each profile (a teacher model that reads the whole profile). Accuracy shown against Jev itself and against the crowd.</p><div id="r-jev-letters"></div></div>
+      <div class="card"><h3>MBTI: DeepSeek agent</h3><div class="hero" id="r-agent-type"></div><p class="note" id="r-agent-note"></p><p class="note">The type the DeepSeek agent would score on MBTI Form M after reading this text (letters only).</p><div id="r-agent-letters"></div></div>
       <div class="card"><h3>Enneagram: crowd vote</h3><p class="note" id="r-ennea-note"></p><div id="r-ennea"></div></div>
       <div class="card"><h3>Enneagram: agent self-typing</h3><p class="note" id="r-agent-ennea-note"></p><div id="r-agent-ennea"></div></div>
     </div>
@@ -174,6 +175,16 @@ function rangeRows(id,items){// Big Five: percentile bar with ±error band
     text(Math.round(it.percentile),Math.min(L+pw*it.percentile/100+10,W-R-14),y+2,{class:'ink'},s);
     hover(el('rect',{x:L,y,width:pw,height:28,class:'hit'},s),`<b>${it.name}</b><br>${Math.round(it.percentile)}th percentile (range ${Math.round(it.low)}–${Math.round(it.high)})<br>CV Spearman r ${it.cv.spearman.toFixed(2)}, n=${it.cv.n}`)});
 }
+function typeCard(key,c,truth,label){
+  if(!c){$('r-'+key+'-type').textContent='—';$('r-'+key+'-note').textContent='Not available: no teacher labels loaded.';$('r-'+key+'-letters').innerHTML='';return}
+  const cv=c.cv[truth],pct=x=>Math.round(x*100)+'%';
+  $('r-'+key+'-type').textContent=c.type;
+  const vsCrowd=truth!=='crowd'&&c.cv.crowd?` Against the crowd: ${pct(c.cv.crowd.exact)} exact.`:'';
+  $('r-'+key+'-note').textContent=(c.top.length>1?`Top 3: ${c.top.map(x=>`${x.type} ${pct(x.p)}`).join(' · ')}. `:'')+
+    `Cross-validated against ${label}: right type ${pct(cv.exact)}, top 3 ${pct(cv.top3)} (always guessing the commonest: ${pct(cv.chance)}; n=${cv.n}).`+vsCrowd;
+  const rows={};Object.entries(c.letters).forEach(([pair,p],i)=>rows[pair]={p_first:p,cv:{balanced_accuracy:cv.letters_balanced[i],n:cv.n}});
+  letterRows('r-'+key+'-letters',rows);
+}
 function letterRows(id,letters){
   const W=520,row=42,L=40,R=40,pw=W-L-R,mid=L+pw/2,s=svg(W,Object.keys(letters).length*row+18,$(id));
   el('line',{x1:mid,x2:mid,y1:0,y2:Object.keys(letters).length*row,stroke:css('--line')},s);
@@ -206,10 +217,9 @@ async function assess(){
     $('result').style.display='block';$('status').textContent='';
     $('warn').innerHTML=r.short_text?`<div class="warn">Only ${r.words} words after removing typology labels. The models were trained on profiles with hundreds to thousands of words, so treat short-text results as rough.</div>`:'';
     rangeRows('r-big5',Object.values(r.big5));
-    $('r-type').textContent=r.mbti;letterRows('r-mbti',r.mbti_letters);
-    const mt=r.mbti_type,sc=mt.short_text_cv;
-    if(sc&&sc.type&&r.words<600)$('warn').innerHTML+=`<div class="warn">Accuracy on short texts is much lower than the full-profile numbers shown in each card. On 250-word excerpts of held-out profiles: right type ${Math.round(sc.type.exact*100)}%, in the top 3 ${Math.round(sc.type.top3*100)}%; Big Five rank correlation ${sc.ipip_spearman.toFixed(2)} (vs about 0.49 on full profiles). Longer texts help.</div>`;$('r-type-top').textContent=`Top 3: ${mt.top.map(x=>`${x.type} ${Math.round(x.p*100)}%`).join(' · ')}. Cross-validated: right type ${Math.round(mt.cv.exact*100)}% of the time, in the top 3 ${Math.round(mt.cv.top3*100)}% (always guessing the commonest type: ${Math.round(mt.cv.chance*100)}%).`;
-    $('r-agent-type').textContent=r.agent_mbti;letterRows('r-agent-mbti',r.agent_mbti_letters);
+    const sc=r.short_text_cv;
+    if(sc&&sc.type&&r.words<600)$('warn').innerHTML+=`<div class="warn">Accuracy on short texts is much lower than the full-profile numbers shown in each card. On 250-word excerpts of held-out profiles: right type ${Math.round(sc.type.exact*100)}%, in the top 3 ${Math.round(sc.type.top3*100)}%; Big Five rank correlation ${sc.ipip_spearman.toFixed(2)} (vs about 0.5 on full profiles). Longer texts help.</div>`;
+    typeCard('crowd',r.mbti.crowd,'crowd','the crowd');typeCard('jev',r.mbti.jev,'jev','Jev');typeCard('agent',r.mbti.agent,'agent','the agent ('+r.mbti.agent.source+')');
     enneaCard('r-ennea',r.enneagram,'voters');enneaCard('r-agent-ennea',r.agent_enneagram,'the agent');
   }catch(e){$('status').textContent='Request failed: '+e.message}
   finally{$('go').disabled=false}
