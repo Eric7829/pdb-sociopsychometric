@@ -304,3 +304,24 @@ Chance: 3.7% top-1, 11.1% top-3, 11.1% core, 33% instinct.
   leaves the theory out of the probabilities and reports it separately, as a fit score per candidate.
 - Off-map: both test people sit beyond the 95th-percentile distance of training profiles (9.6 and 13.2 against 7.2),
   so v2 flattens their probabilities and flags them.
+
+## 6. Instinct from text, learned within each core (`tools/instinct_head.py`)
+
+640 profiles with a crowd core and dominant instinct (429 with the creator's own instinct vote); TF-IDF (300 SVD
+components) + gte vectors; core taken as known; 5-fold CV, 3 repeats.
+
+| Head | Crowd instinct | Balanced | Creator's own instinct | Countertype recall |
+|---|---|---|---|---|
+| Each core's majority instinct (no text) | **44.7%** | 43.2% | **41.8%** | 0% |
+| Global head (one for all cores) | 39.7% | 38.9% | 37.7% | 35.7% |
+| Separate head per core | 44.5% | **43.3%** | 39.9% | 26.3% |
+| Pooled per-core head (lam = 1) | 42.4% | 41.3% | 40.4% | 37.7% |
+
+- Text adds almost nothing to instinct beyond knowing the core: no head beats "guess the core's commonest instinct"
+  (44.7%; 6s alone are 65% sp). Instinct is barely written into self-descriptions, matching its ~2% share of Big Five
+  variance.
+- Per-core learning is the right shape: the separate per-core head ties the baseline while the global head loses five
+  points to it. Pooling trades a little overall accuracy for the best countertype recall (38%, against 0% for the
+  baseline and 26% unpooled).
+- Cells of 6-59 profiles are too small for anything stronger; the instinct is better left to motive questions or a
+  description-matching LLM step.
