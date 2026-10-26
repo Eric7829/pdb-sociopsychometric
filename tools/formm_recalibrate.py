@@ -1,10 +1,10 @@
 """Recalibrate MBTI Form M scoring for LLM respondents, following the Form M manual's method. Read-only.
 
-  python tools/formm_recalibrate.py --db data/pdb-top.duckdb
+  python tools/formm_recalibrate.py --db data/pdb-top.duckdb [--source v3b|promptA]
 
 The manual (ch. 7) scores Form M with IRT item parameters and Bayes EAP estimates of theta, then places each scale's
 division point where it maximizes agreement with best-fit type (the type people choose after a feedback session);
-exact ties go to I, N, F or P. Here the respondents are the Form M v3b agents (scrubbed text) and best-fit type is the
+exact ties go to I, N, F or P. Here the respondents are the Form M v3b agents (scrubbed text) or, with --source promptA, the Stage 3 battery's Form M answers (raw text, self-typing left in) and best-fit type is the
 profile creator's own PDB self-vote. Variants per dichotomy, 5-fold CV (5 repeats) over self-voted profiles:
   official:        formm.score as shipped (human 2PL parameters, MLE, cut at 0 plus the S/T/J clarity adjustments),
   official, cut 0: the same theta without the adjustments,
@@ -30,12 +30,15 @@ from pdb_ingest.panel import MBTI
 
 DICH=list(formm.DICHOTOMIES); Q=np.linspace(-4,4,41); W=np.exp(-Q**2/2); W/=W.sum()
 
-def responses(folder):
-    qs=formm.load_questions(); params=formm.load_parameters(); out={}
-    for f in Path(folder).glob('*.json'):
-        a=json.loads(f.read_text(encoding='utf-8'))['answers']
-        out[int(f.stem)]={n:qs[n-1]['options'][a[str(n)]]['scoreKey'] for n in params if a.get(str(n)) in ('A','B')}
-    return out
+def responses(source,conn):
+    """profile -> {item: scoreKey}: 'v3b' from the Form M v3b files, 'promptA' from the Stage 3 battery (raw text)."""
+    qs=formm.load_questions(); params=formm.load_parameters(); raw={}
+    if source=='v3b':
+        for f in Path(panel.AGENT_FORMM).glob('*.json'): raw[int(f.stem)]=json.loads(f.read_text(encoding='utf-8'))['answers']
+    else:
+        for n,a in conn.execute("SELECT r.profile_num,e.form_m_responses_json FROM agent_runs r JOIN psychometric_evaluations e ON e.run_id=r.run_id WHERE r.complete AND r.prompt_version='stage3-v1' ORDER BY r.seed").fetchall():
+            if n not in raw and a: raw[n]=json.loads(a)
+    return {n:{i:qs[i-1]['options'][a[str(i)]]['scoreKey'] for i in params if a.get(str(i)) in ('A','B')} for n,a in raw.items()}
 
 def items_of(d):
     p=formm.load_parameters(); return [n for n in sorted(p) if p[n]['dichotomy']==d]
@@ -78,9 +81,9 @@ def main():
     from sklearn.linear_model import LogisticRegression
     from sklearn.model_selection import KFold
     p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--db',type=Path,required=True); p.add_argument('--output',type=Path,default=Path('data/stage2/formm_recalibrate.json'))
+    p.add_argument('--db',type=Path,required=True); p.add_argument('--source',choices=('v3b','promptA'),default='v3b'); p.add_argument('--output',type=Path)
     args=p.parse_args(); store=readonly_store(args.db); c=store.connection
-    R=responses(panel.AGENT_FORMM); sv=self_votes(c); rows=panel.load_rows(c,('top','top2','es'))
+    R=responses(args.source,c); args.output=args.output or Path(f'data/stage2/formm_recalibrate_{args.source}.json'); sv=self_votes(c); rows=panel.load_rows(c,('top','top2','es'))
     crowd={n:panel.modal(r['mbti_counts']) for n,r in rows.items() if 'mbti_counts' in r}
     ids=sorted(n for n in R if n in sv); allids=sorted(R)
     params=formm.load_parameters(); res={'agents':len(allids),'self_voted':len(ids)}

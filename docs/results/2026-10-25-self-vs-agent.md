@@ -43,3 +43,22 @@ E-I -0.35 (towards E), S-N -0.07, T-F +0.06, J-P +0.01.
   E-I line moved towards E and no N/F/P nudge, because they already lean I, N, F and P.
 - For scale: people taking the real Form M agree with their own best-fit type on all four letters 72.9% of the time
   (Form M Manual Supplement, n = 8,836).
+
+**Prompt A answers** (Stage 3 battery, raw text with self-typing left in; 914 agents, 522 self-voted), same procedure:
+
+| Scoring | E-I | S-N | T-F | J-P | Exact vs self | Exact vs crowd |
+|---|---|---|---|---|---|---|
+| Official | .745 | .743 | .799 | .676 | 30.1% | 32.2% |
+| Official theta, plain cut at 0 | .745 | .747 | .805 | .676 | 30.3% | 32.5% |
+| **Human 2PL + EAP + LLM-fitted division points** | **.773** | **.764** | .805 | **.696** | **35.6%** | **38.3%** |
+| 2PL refitted to LLM answers + EAP + fitted points | .776 | .758 | .795 | .684 | 33.7% | 36.8% |
+| Item-level logistic key | .770 | .755 | .813 | .674 | 34.2% | 37.8% |
+
+Fitted division points (human parameters, EAP): E-I -1.16, S-N -1.89, T-F -0.92, J-P -1.89, all far on the I/N/F/P side.
+
+- Here recalibration works: +5.5 points exact against self-votes and +6.1 against the crowd. Prompt A's agents
+  answered in saturated, introspective extremes (the INFP drift), so every line has to move a long way towards I, N,
+  F and P to recover the E, S, T and J people. Once moved, prompt A overtakes v3b (35.6% vs 33.8%).
+- v3b's prompt already removed most of that drift, so its lines barely needed moving. Recalibration and prompt design
+  fix the same bias; whichever is done first leaves little for the other.
+- Prompt A saw self-typing in the raw text, so part of its edge over v3b may be the leak, not the scoring.
