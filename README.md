@@ -83,7 +83,7 @@ All of it is written up with methods and tables in [`docs/results/`](docs/result
 
 ---
 
-### Making a human personality test work for AI test-takers
+## 📐 Making a human personality test work for AI test-takers
 
 MBTI Form M scores answers with item response theory (IRT), and its manual sets each letter's dividing line where results best match **best-fit type**, the type people pick after a feedback session. Those lines were tuned on humans. AI agents answering in character lean introverted, intuitive, feeling and perceiving, so I re-ran the manual's procedure with each forum member's own type vote as best-fit type:
 
