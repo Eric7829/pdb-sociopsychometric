@@ -20,6 +20,7 @@ The idea comes from Stanford's [Generative Agent Simulations of 1,000 People](ht
 - 🎯 **The AI teacher types you like a forum veteran:** the DeepSeek agent the local model learns from hits **30% exact MBTI type** (random guessing: 8%) across 785 profiles, without seeing a single type label. Humans aren't much steadier: up to half of people get a **different** type when they simply retake the official MBTI five weeks later (Pittenger, 2005). It also scores **59.8%** on Essays zero-shot, above the best published model trained on it (58.8%).
 - 🕵️ **Caught the shortcut most "AI typed me" demos take:** leave people's own "I'm an INFJ" in the text and accuracy jumps **12 points**, the same shortcut a chatbot gets when your messages mention your type. Scrub it and you see what the AI can actually read.
 - 🌀 **The forum thinks in Jungian functions, AI thinks in letters:** voters treat INTP and ENTP as close cousins; models confuse INTP with INTJ.
+- 📐 **Recalibrated the official MBTI scoring for AI respondents:** using the Myers-Briggs Company's own *best-fit type* method from the Form M manual, I refit the item-response-theory dividing lines for LLM test-takers. It undid the agents' INFP drift and lifted exact-type accuracy from **30.1% to 35.6%** (38.3% against the crowd), with no new data and no extra API calls.
 - 🔢 **Enneagram from a Big Five test:** a model I built from forum data names your core Enneagram type **38%** of the time and has it in its top three **72%** of the time (chance: 11% and 33%), beating the official **Riso-Hudson RHETI** (27% top pick) and the **Wagner WEPSS** (33%) on top-pick accuracy in the only independent accuracy check of those tests I found, from a test that wasn't even built for the Enneagram.
 - 🧬 **Every Enneagram type has a Big Five fingerprint,** and the infamous "countertype" subtypes show up in the data exactly where the theory says they should.
 
@@ -74,10 +75,24 @@ When forum voters split on a type, the runner-up is usually the E/I mirror (same
 | MBTI ↔ Enneagram link on the forum (Cramér's V) | **.48**, replicated on Reddit self-reports (.37) |
 | Big Five → Enneagram core, top-3 hit rate | **72%** (chance 33%) |
 | AI agents answering MBTI Form M "in character" drift toward | **INFP** (J→P, S→N, E→I) |
+| Exact MBTI after recalibrating Form M's IRT dividing lines for LLMs | **30.1% → 35.6%** |
 | Short self-introductions vs 4x as much venting text, on Reddit | introductions read **better** |
 | Self-type vs crowd agreement on the forum | **69%** exact |
 
 All of it is written up with methods and tables in [`docs/results/`](docs/results/), starting with the [findings summary](docs/results/2026-10-25-findings.md).
+
+---
+
+### Making a human personality test work for AI test-takers
+
+MBTI Form M scores answers with item response theory (IRT), and its manual sets each letter's dividing line where results best match **best-fit type**, the type people pick after a feedback session. Those lines were tuned on humans. AI agents answering in character lean introverted, intuitive, feeling and perceiving, so I re-ran the manual's procedure with each forum member's own type vote as best-fit type:
+
+| Scoring the same 914 AI answer sheets | Exact type vs self-vote | vs crowd |
+|---|---|---|
+| Official human-calibrated scoring | 30.1% | 32.2% |
+| **Dividing lines refit for LLM respondents (Bayesian θ, cross-validated)** | **35.6%** | **38.3%** |
+
+The refit lines moved far toward the I/N/F/P side (θ ≈ −0.9 to −1.9), which is the INFP drift, measured and corrected. Details in the [self-type report](docs/results/2026-10-25-self-vs-agent.md).
 
 ---
 
