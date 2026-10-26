@@ -35,7 +35,7 @@ The idea comes from Stanford's [Generative Agent Simulations of 1,000 People](ht
 | Source of each "person" | a 2-hour recorded interview | the person's own public self-description |
 | Agent's job | answer surveys, personality tests and experiments as that person | take the IPIP-NEO-120 Big Five test and MBTI Form M as that person |
 | Scale | 1,052 people | 1,000+ forum profiles |
-| What comes out | a simulated person (an LLM call per question) | **a small local model** trained on the agents' answers: paste text, get Big Five + MBTI in about a second, offline |
+| What comes out | a simulated person (an GPT4O LLM call per question) | **a small local model** trained on the Deepseek v4 agents' answers: paste text, get Big Five + MBTI in about a second, offline |
 
 The agent is the expensive teacher; the local model is the product.
 
