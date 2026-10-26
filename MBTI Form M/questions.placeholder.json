@@ -1,0 +1,1771 @@
+{
+ "MBTI_Form_M": [
+  {
+   "number": 1,
+   "part": "I",
+   "dichotomy": "J-P",
+   "facet": "Planful / Open-ended",
+   "question": "[Form M item 1: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 2,
+   "part": "I",
+   "dichotomy": "S-N",
+   "facet": "Practical / Conceptual",
+   "question": "[Form M item 2: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 3,
+   "part": "I",
+   "dichotomy": "E-I",
+   "facet": "Enthusiastic / Quiet",
+   "question": "[Form M item 3: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 4,
+   "part": "I",
+   "dichotomy": "J-P",
+   "facet": "Planful / Open-ended",
+   "question": "[Form M item 4: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 5,
+   "part": "I",
+   "dichotomy": "S-N",
+   "facet": "Realistic / Imaginative",
+   "question": "[Form M item 5: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 6,
+   "part": "I",
+   "dichotomy": "T-F",
+   "facet": "Logical / Empathetic",
+   "question": "[Form M item 6: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 7,
+   "part": "I",
+   "dichotomy": "E-I",
+   "facet": "Gregarious / Intimate",
+   "question": "[Form M item 7: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 8,
+   "part": "I",
+   "dichotomy": "J-P",
+   "facet": "Scheduled / Spontaneous",
+   "question": "[Form M item 8: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 9,
+   "part": "I",
+   "dichotomy": "S-N",
+   "facet": "Practical / Conceptual",
+   "question": "[Form M item 9: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 10,
+   "part": "I",
+   "dichotomy": "E-I",
+   "facet": "Initiating / Receiving",
+   "question": "[Form M item 10: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 11,
+   "part": "I",
+   "dichotomy": "S-N",
+   "facet": "Realistic / Imaginative",
+   "question": "[Form M item 11: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 12,
+   "part": "I",
+   "dichotomy": "J-P",
+   "facet": "Scheduled / Spontaneous",
+   "question": "[Form M item 12: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 13,
+   "part": "I",
+   "dichotomy": "E-I",
+   "facet": "Expressive / Contained",
+   "question": "[Form M item 13: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 14,
+   "part": "I",
+   "dichotomy": "J-P",
+   "facet": "Systematic / Casual",
+   "question": "[Form M item 14: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 15,
+   "part": "I",
+   "dichotomy": "T-F",
+   "facet": "Reasonable / Compassionate",
+   "question": "[Form M item 15: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 16,
+   "part": "I",
+   "dichotomy": "E-I",
+   "facet": "Gregarious / Intimate",
+   "question": "[Form M item 16: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 17,
+   "part": "I",
+   "dichotomy": "J-P",
+   "facet": "Early Starting / Pressure Prompted",
+   "question": "[Form M item 17: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 18,
+   "part": "I",
+   "dichotomy": "S-N",
+   "facet": "Realistic / Imaginative",
+   "question": "[Form M item 18: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 19,
+   "part": "I",
+   "dichotomy": "E-I",
+   "facet": "Expressive / Contained",
+   "question": "[Form M item 19: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 20,
+   "part": "I",
+   "dichotomy": "J-P",
+   "facet": "Methodical / Emergent",
+   "question": "[Form M item 20: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 21,
+   "part": "I",
+   "dichotomy": "T-F",
+   "facet": "Logical / Empathetic",
+   "question": "[Form M item 21: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 22,
+   "part": "I",
+   "dichotomy": "S-N",
+   "facet": "Concrete / Abstract",
+   "question": "[Form M item 22: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 23,
+   "part": "I",
+   "dichotomy": "E-I",
+   "facet": "Initiating / Receiving",
+   "question": "[Form M item 23: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 24,
+   "part": "I",
+   "dichotomy": "J-P",
+   "facet": "Scheduled / Spontaneous",
+   "question": "[Form M item 24: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 25,
+   "part": "I",
+   "dichotomy": "S-N",
+   "facet": "Traditional / Original",
+   "question": "[Form M item 25: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 26,
+   "part": "I",
+   "dichotomy": "E-I",
+   "facet": "Expressive / Contained",
+   "question": "[Form M item 26: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 27,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Concrete / Abstract",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 27: text not distributed]"
+  },
+  {
+   "number": 28,
+   "part": "II",
+   "dichotomy": "J-P",
+   "facet": "Scheduled / Spontaneous",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 28: text not distributed]"
+  },
+  {
+   "number": 29,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Tough / Tender",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 29: text not distributed]"
+  },
+  {
+   "number": 30,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Practical / Conceptual",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 30: text not distributed]"
+  },
+  {
+   "number": 31,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Logical / Empathetic",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 31: text not distributed]"
+  },
+  {
+   "number": 32,
+   "part": "II",
+   "dichotomy": "E-I",
+   "facet": "Enthusiastic / Quiet",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 32: text not distributed]"
+  },
+  {
+   "number": 33,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Tough / Tender",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 33: text not distributed]"
+  },
+  {
+   "number": 34,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Concrete / Abstract",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 34: text not distributed]"
+  },
+  {
+   "number": 35,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Logical / Empathetic",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 35: text not distributed]"
+  },
+  {
+   "number": 36,
+   "part": "II",
+   "dichotomy": "J-P",
+   "facet": "Scheduled / Spontaneous",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 36: text not distributed]"
+  },
+  {
+   "number": 37,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Reasonable / Compassionate",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 37: text not distributed]"
+  },
+  {
+   "number": 38,
+   "part": "II",
+   "dichotomy": "E-I",
+   "facet": "Enthusiastic / Quiet",
+   "options": {
+    "A": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 38: text not distributed]"
+  },
+  {
+   "number": 39,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Experiential / Theoretical",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 39: text not distributed]"
+  },
+  {
+   "number": 40,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Reasonable / Compassionate",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 40: text not distributed]"
+  },
+  {
+   "number": 41,
+   "part": "II",
+   "dichotomy": "J-P",
+   "facet": "Systematic / Casual",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 41: text not distributed]"
+  },
+  {
+   "number": 42,
+   "part": "II",
+   "dichotomy": "E-I",
+   "facet": "Enthusiastic / Quiet",
+   "options": {
+    "A": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 42: text not distributed]"
+  },
+  {
+   "number": 43,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Reasonable / Compassionate",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 43: text not distributed]"
+  },
+  {
+   "number": 44,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Experiential / Theoretical",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 44: text not distributed]"
+  },
+  {
+   "number": 45,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Reasonable / Compassionate",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 45: text not distributed]"
+  },
+  {
+   "number": 46,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Concrete / Abstract",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 46: text not distributed]"
+  },
+  {
+   "number": 47,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Tough / Tender",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 47: text not distributed]"
+  },
+  {
+   "number": 48,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Realistic / Imaginative",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 48: text not distributed]"
+  },
+  {
+   "number": 49,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Tough / Tender",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 49: text not distributed]"
+  },
+  {
+   "number": 50,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Traditional / Original",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 50: text not distributed]"
+  },
+  {
+   "number": 51,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Tough / Tender",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 51: text not distributed]"
+  },
+  {
+   "number": 52,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Realistic / Imaginative",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 52: text not distributed]"
+  },
+  {
+   "number": 53,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Logical / Empathetic",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 53: text not distributed]"
+  },
+  {
+   "number": 54,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Practical / Conceptual",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 54: text not distributed]"
+  },
+  {
+   "number": 55,
+   "part": "II",
+   "dichotomy": "J-P",
+   "facet": "Scheduled / Spontaneous",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 55: text not distributed]"
+  },
+  {
+   "number": 56,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Reasonable / Compassionate",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 56: text not distributed]"
+  },
+  {
+   "number": 57,
+   "part": "II",
+   "dichotomy": "E-I",
+   "facet": "Gregarious / Intimate",
+   "options": {
+    "A": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 57: text not distributed]"
+  },
+  {
+   "number": 58,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Logical / Empathetic",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 58: text not distributed]"
+  },
+  {
+   "number": 59,
+   "part": "II",
+   "dichotomy": "J-P",
+   "facet": "Planful / Open-ended",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 59: text not distributed]"
+  },
+  {
+   "number": 60,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Concrete / Abstract",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 60: text not distributed]"
+  },
+  {
+   "number": 61,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Tough / Tender",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 61: text not distributed]"
+  },
+  {
+   "number": 62,
+   "part": "II",
+   "dichotomy": "E-I",
+   "facet": "Expressive / Contained",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 62: text not distributed]"
+  },
+  {
+   "number": 63,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Traditional / Original",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 63: text not distributed]"
+  },
+  {
+   "number": 64,
+   "part": "II",
+   "dichotomy": "J-P",
+   "facet": "Systematic / Casual",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 64: text not distributed]"
+  },
+  {
+   "number": 65,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Realistic / Imaginative",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 65: text not distributed]"
+  },
+  {
+   "number": 66,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Critical / Accepting",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 66: text not distributed]"
+  },
+  {
+   "number": 67,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Experiential / Theoretical",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 67: text not distributed]"
+  },
+  {
+   "number": 68,
+   "part": "II",
+   "dichotomy": "E-I",
+   "facet": "Gregarious / Intimate",
+   "options": {
+    "A": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 68: text not distributed]"
+  },
+  {
+   "number": 69,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Realistic / Imaginative",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 69: text not distributed]"
+  },
+  {
+   "number": 70,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Reasonable / Compassionate",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 70: text not distributed]"
+  },
+  {
+   "number": 71,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Traditional / Original",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 71: text not distributed]"
+  },
+  {
+   "number": 72,
+   "part": "II",
+   "dichotomy": "T-F",
+   "facet": "Tough / Tender",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   },
+   "question": "[Form M item 72: text not distributed]"
+  },
+  {
+   "number": 73,
+   "part": "II",
+   "dichotomy": "S-N",
+   "facet": "Traditional / Original",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   },
+   "question": "[Form M item 73: text not distributed]"
+  },
+  {
+   "number": 74,
+   "part": "III",
+   "dichotomy": "E-I",
+   "facet": "Active / Reflective",
+   "question": "[Form M item 74: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 75,
+   "part": "III",
+   "dichotomy": "T-F",
+   "facet": "Logical / Empathetic",
+   "question": "[Form M item 75: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 76,
+   "part": "III",
+   "dichotomy": "J-P",
+   "facet": "Planful / Open-ended",
+   "question": "[Form M item 76: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 77,
+   "part": "III",
+   "dichotomy": "E-I",
+   "facet": "Enthusiastic / Quiet",
+   "question": "[Form M item 77: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 78,
+   "part": "III",
+   "dichotomy": "J-P",
+   "facet": "Scheduled / Spontaneous",
+   "question": "[Form M item 78: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 79,
+   "part": "III",
+   "dichotomy": "E-I",
+   "facet": "Gregarious / Intimate",
+   "question": "[Form M item 79: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 80,
+   "part": "III",
+   "dichotomy": "J-P",
+   "facet": "Planful / Open-ended",
+   "question": "[Form M item 80: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 81,
+   "part": "III",
+   "dichotomy": "E-I",
+   "facet": "Expressive / Contained",
+   "question": "[Form M item 81: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 82,
+   "part": "III",
+   "dichotomy": "S-N",
+   "facet": "Practical / Conceptual",
+   "question": "[Form M item 82: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 83,
+   "part": "III",
+   "dichotomy": "E-I",
+   "facet": "Initiating / Receiving",
+   "question": "[Form M item 83: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 84,
+   "part": "III",
+   "dichotomy": "J-P",
+   "facet": "Scheduled / Spontaneous",
+   "question": "[Form M item 84: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 85,
+   "part": "III",
+   "dichotomy": "E-I",
+   "facet": "Gregarious / Intimate",
+   "question": "[Form M item 85: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 86,
+   "part": "III",
+   "dichotomy": "J-P",
+   "facet": "Methodical / Emergent",
+   "question": "[Form M item 86: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 87,
+   "part": "III",
+   "dichotomy": "T-F",
+   "facet": "Reasonable / Compassionate",
+   "question": "[Form M item 87: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 88,
+   "part": "III",
+   "dichotomy": "J-P",
+   "facet": "Scheduled / Spontaneous",
+   "question": "[Form M item 88: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 89,
+   "part": "III",
+   "dichotomy": "T-F",
+   "facet": "Questioning / Accommodating",
+   "question": "[Form M item 89: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[F]",
+     "pole": "F",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[T]",
+     "pole": "T",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 90,
+   "part": "III",
+   "dichotomy": "J-P",
+   "facet": "Methodical / Emergent",
+   "question": "[Form M item 90: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 91,
+   "part": "III",
+   "dichotomy": "E-I",
+   "facet": "Gregarious / Intimate",
+   "question": "[Form M item 91: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[I]",
+     "pole": "I",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[E]",
+     "pole": "E",
+     "scoreKey": 1
+    }
+   }
+  },
+  {
+   "number": 92,
+   "part": "III",
+   "dichotomy": "S-N",
+   "facet": "Traditional / Original",
+   "question": "[Form M item 92: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[S]",
+     "pole": "S",
+     "scoreKey": 1
+    },
+    "B": {
+     "text": "[N]",
+     "pole": "N",
+     "scoreKey": 0
+    }
+   }
+  },
+  {
+   "number": 93,
+   "part": "III",
+   "dichotomy": "J-P",
+   "facet": "Scheduled / Spontaneous",
+   "question": "[Form M item 93: text not distributed]",
+   "options": {
+    "A": {
+     "text": "[P]",
+     "pole": "P",
+     "scoreKey": 0
+    },
+    "B": {
+     "text": "[J]",
+     "pole": "J",
+     "scoreKey": 1
+    }
+   }
+  }
+ ]
+}

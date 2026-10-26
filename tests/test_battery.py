@@ -106,11 +106,11 @@ def test_form_m_port_matches_scorer_js(tmp_path):
     script=tmp_path/'parity.mjs'
     script.write_text('''import { pathToFileURL } from 'node:url'; import fs from 'node:fs';
 const dir=process.argv[2]; const { calculateResults } = await import(pathToFileURL(dir+'/scorer.js'));
-const q=JSON.parse(fs.readFileSync(dir+'/questions.json','utf8')); const cases=JSON.parse(fs.readFileSync(0,'utf8'));
+const q=JSON.parse(fs.readFileSync(process.argv[3],'utf8')); const cases=JSON.parse(fs.readFileSync(0,'utf8'));
 console.log(JSON.stringify(cases.map(c=>{const a={};for(const[k,v]of Object.entries(c))a[k]={questionNumber:+k,choice:v};return calculateResults(a,q).dichotomyResults;})));''')
     rng=random.Random(7)
     cases=[{n:rng.choice('AB') for n in range(1,94) if rng.random()>.1} for _ in range(100)]+[{n:'A' for n in range(1,94)},{}]
-    out=subprocess.run(['node',str(script),str(formm.FORM_DIR)],input=json.dumps([{str(k):v for k,v in c.items()} for c in cases]),
+    out=subprocess.run(['node',str(script),str(formm.FORM_DIR),str(formm.questions_path())],input=json.dumps([{str(k):v for k,v in c.items()} for c in cases]),
                        capture_output=True,text=True,check=True).stdout
     assert [formm.score(c)['dichotomyResults'] for c in cases]==json.loads(out)
 

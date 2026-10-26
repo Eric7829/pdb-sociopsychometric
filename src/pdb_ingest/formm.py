@@ -8,9 +8,14 @@ import re
 FORM_DIR = Path(__file__).resolve().parents[2]/'MBTI Form M'
 DICHOTOMIES = {'E-I':('E','I','I'),'S-N':('S','N','N'),'T-F':('T','F','F'),'J-P':('J','P','P')}
 
+def questions_path():
+    """The licensed item text (questions.json, kept local) when present, else the placeholder with the same keys and poles."""
+    real=FORM_DIR/'questions.json'
+    return real if real.exists() else FORM_DIR/'questions.placeholder.json'
+
 @cache
 def load_questions():
-    items=json.loads((FORM_DIR/'questions.json').read_text(encoding='utf-8'))['MBTI_Form_M']
+    items=json.loads(questions_path().read_text(encoding='utf-8'))['MBTI_Form_M']
     if [q['number'] for q in items]!=list(range(1,len(items)+1)): raise ValueError('Form M items out of order')
     return items
 

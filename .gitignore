@@ -6,3 +6,6 @@ data/
 .superpowers/
 *.duckdb*
 OPEN_ROUTER_API_KEY*
+# Licensed MBTI Form M item text stays local; questions.placeholder.json is the distributable stand-in
+MBTI Form M/questions.json
+MBTI Form M/Sample Questions.json
