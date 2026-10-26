@@ -225,7 +225,7 @@ class Assessor:
             """Multiclass Enneagram-core head; (None, n, reason) when the data cannot support it."""
             sub=[n for n in ids if label(rows[n])]; D,E=data(sub); y=np.array([label(rows[n])[0] for n in sub]); counts=Counter(y)
             if len(counts)<2: return None,len(sub),f'only one class in training data ({next(iter(counts),"none")})'
-            mt=make_pipeline(tfidf(),LogisticRegression(C=4,max_iter=3000)); me=make_pipeline(StandardScaler(),LogisticRegression(C=.5,max_iter=3000))
+            mt=make_pipeline(tfidf(),LogisticRegression(C=4,max_iter=3000)); me=make_pipeline(StandardScaler(),LogisticRegression(C=ENCODER_TYPE_C,max_iter=3000))
             scv=StratifiedKFold(max(2,min(folds,min(counts.values()))),shuffle=True,random_state=0)
             p=(cross_val_predict(mt,D,y,cv=scv,method='predict_proba')+cross_val_predict(me,E,y,cv=scv,method='predict_proba'))/2
             cores=sorted(counts)

@@ -325,3 +325,18 @@ components) + gte vectors; core taken as known; 5-fold CV, 3 repeats.
   baseline and 26% unpooled).
 - Cells of 6-59 profiles are too small for anything stronger; the instinct is better left to motive questions or a
   description-matching LLM step.
+
+## 7. Bug fix: the panel's Enneagram head was overconfident on pasted text
+
+The Enneagram heads' encoder half still used C = .5 after the MBTI heads moved to C = .003 (2026-10-25), so on a
+single pasted text it saturated. Found through a synthesized L (Death Note) self-description: the TF-IDF half said 5
+(24%) over 4 (17%), the encoder half said 4 at 68%, and dropping any one paragraph moved P(4) from .43 to about .10.
+
+5-fold CV on 770 PDB profiles (chance 18.7%):
+
+| Encoder half | Top-1 full | Top-1 250-word excerpts | Log loss excerpts | Encoder > 60% sure on excerpts |
+|---|---|---|---|---|
+| C = .5 (before) | 20.3% | 16.5% (below chance) | 2.357 | 80% |
+| C = .003 (now, `ENCODER_TYPE_C`) | 23.6% | 20.3% | 2.089 | 5% |
+
+After the fix the L essay reads 5 (30%), 4 (21%), matching PDB's 5w4 core and wing. MBTI readings are unchanged.

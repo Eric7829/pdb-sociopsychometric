@@ -54,6 +54,8 @@ async def test_assessor_predicts_with_cv_accuracy(tmp_path):
     assert any('repeat' in w for w in a.assess(song)['not_self_description'])
     assert panel.style_stats('I think my plan works for me.')[0]>.3
     assert abs(sum(r['enneagram']['probabilities'])-1)<1e-6 and r['short_text']
+    # The Enneagram encoder half is regularized like the MBTI type heads; at C=.5 it saturated on single pasted texts.
+    assert all(h[1][-1].C==panel.ENCODER_TYPE_C for h in (a.ennea,a.agent_ennea) if h)
     assert a.assess('INFP ENTJ 4w5')=={'error':'No words left after removing typology labels.'}
 
 async def test_http_endpoints(tmp_path):
